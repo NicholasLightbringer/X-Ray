@@ -1415,6 +1415,39 @@ void CWeapon::UpdateHudAdditonal		(Fmatrix& trans)
 	CActor* pActor = smart_cast<CActor*>(H_Parent());
 	if(!pActor) return;
 
+	// Aim HUD inertia.
+	// Same mechanism as CHudItem::UpdateHudInertion: view-direction delta
+	// is used to offset the HUD in the opposite direction.
+	{
+		static const float AIM_ORIGIN_OFFSET = -0.025f;
+		static const float AIM_TENDTO_SPEED  = 5.f;
+		static Fvector aim_last_dir = {0,0,0};
+
+		if (pActor->IsZoomAimingMode())
+		{
+			Fvector diff_dir;
+			diff_dir.sub(trans.k, aim_last_dir);
+
+			Fvector last;
+			last.normalize_safe(aim_last_dir);
+			float dot = last.dotproduct(trans.k);
+			if (dot < EPS)
+			{
+				Fvector v0;
+				v0.crossproduct(aim_last_dir, trans.k);
+				aim_last_dir.crossproduct(trans.k, v0);
+				diff_dir.sub(trans.k, aim_last_dir);
+			}
+
+			aim_last_dir.mad(diff_dir, AIM_TENDTO_SPEED * Device.fTimeDelta);
+			trans.c.mad(diff_dir, AIM_ORIGIN_OFFSET);
+		}
+		else
+		{
+			aim_last_dir = trans.k;
+		}
+	}
+
 	if(		(pActor->IsZoomAimingMode() && m_fZoomRotationFactor<=1.f) ||
 			(!pActor->IsZoomAimingMode() && m_fZoomRotationFactor>0.f))
 	{
