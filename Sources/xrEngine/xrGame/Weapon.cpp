@@ -57,8 +57,8 @@ CWeapon::CWeapon(LPCSTR name)
 
 	m_fZoomFactor			= g_fov;
 	m_fZoomRotationFactor	= 0.f;
-
-
+	m_bAimHudInertion		= true;
+	m_fAimHudInertionStrength	= 0.025f;
 	m_pAmmo					= NULL;
 
 
@@ -339,6 +339,8 @@ void CWeapon::Load		(LPCSTR section)
 
 	fireDispersionConditionFactor = pSettings->r_float(section,"fire_dispersion_condition_factor"); 
 	misfireProbability			  = pSettings->r_float(section,"misfire_probability"); 
+	m_bAimHudInertion		= READ_IF_EXISTS(pSettings, r_bool, section, "hud_aim_inertion", true);
+	m_fAimHudInertionStrength	= READ_IF_EXISTS(pSettings, r_float, section, "hud_aim_inertion_strength", 0.025f);
 	misfireConditionK			  = READ_IF_EXISTS(pSettings, r_float, section, "misfire_condition_k",	1.0f);
 	conditionDecreasePerShot	  = pSettings->r_float(section,"condition_shot_dec"); 
 		
@@ -1423,7 +1425,7 @@ void CWeapon::UpdateHudAdditonal		(Fmatrix& trans)
 		static const float AIM_TENDTO_SPEED  = 5.f;
 		static Fvector aim_last_dir = {0,0,0};
 
-		if (pActor->IsZoomAimingMode())
+		if (pActor->IsZoomAimingMode() && m_bAimHudInertion)
 		{
 			Fvector diff_dir;
 			diff_dir.sub(trans.k, aim_last_dir);
@@ -1440,7 +1442,7 @@ void CWeapon::UpdateHudAdditonal		(Fmatrix& trans)
 			}
 
 			aim_last_dir.mad(diff_dir, AIM_TENDTO_SPEED * Device.fTimeDelta);
-			trans.c.mad(diff_dir, AIM_ORIGIN_OFFSET);
+			trans.c.mad(diff_dir, -m_fAimHudInertionStrength);
 		}
 		else
 		{
