@@ -113,6 +113,8 @@ protected:
 	//вкл/выкл инерции (временное, с плавным возвращением оружия в состояние без инерции)
 	void					StartHudInertion();
 	void					StopHudInertion();
+	float m_fHudBobbingTime;
+	float m_fHudBobbingReminder;
 private:
 	bool					m_bInertionEnable;
 	bool					m_bInertionAllow;

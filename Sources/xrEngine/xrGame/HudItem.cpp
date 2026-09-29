@@ -25,6 +25,8 @@ CHudItem::CHudItem(void)
 
 	m_bInertionEnable	= true;
 	m_bInertionAllow	= true;
+	m_fHudBobbingTime		= 0.f;
+	m_fHudBobbingReminder	= 0.f;
 }
 
 CHudItem::~CHudItem(void)
@@ -179,6 +181,83 @@ void CHudItem::UpdateHudPosition	()
 		if(pActor){
 			pActor->Cameras().camera_Matrix				(trans);
 			UpdateHudInertion							(trans);
+
+			// HUD weapon/hand bobbing.
+			// This is intentionally done at the common CHudItem level so the
+			// same effect is applied to weapons and CMissile-derived items
+			// (including the bolt).
+			{
+				static const float HUD_BOB_REMINDER_SPEED = 5.f;
+				//static const float HUD_BOB_VERTICAL_SCALE = 1.8f;
+				static const float HUD_BOB_ROTATION_SCALE = 1.0f;
+				static const float HUD_BOB_CROUCH_FACTOR = 0.75f;
+
+				static const float HUD_BOB_SPEED = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_bobbing_speed", 0.75f);
+
+				static const float HUD_BOB_AMPLITUDE = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_bobbing_amplitude", 1.0f);
+
+				static const float HUD_BOB_VERTICAL_SCALE = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_bobbing_vertical", 1.8f);
+
+				const u32 mstate = pActor->GetMovementState();
+
+				if (mstate & mcAnyMove)
+				{
+					if (m_fHudBobbingReminder < 1.f)
+						m_fHudBobbingReminder += HUD_BOB_REMINDER_SPEED * Device.fTimeDelta;
+					else
+						m_fHudBobbingReminder = 1.f;
+				}
+				else
+				{
+					if (m_fHudBobbingReminder > 0.f)
+						m_fHudBobbingReminder -= HUD_BOB_REMINDER_SPEED * Device.fTimeDelta;
+					else
+						m_fHudBobbingReminder = 0.f;
+				}
+
+				clamp(m_fHudBobbingReminder, 0.f, 1.f);
+
+				if (!fsimilar(m_fHudBobbingReminder, 0.f))
+				{
+					m_fHudBobbingTime += Device.fTimeDelta;
+
+					const float crouch_factor =
+						(mstate & mcCrouch) ? HUD_BOB_CROUCH_FACTOR : 1.f;
+
+					float A;
+					float ST;
+
+					if (isActorAccelerated(mstate, pActor->IsZoomAimingMode()))
+					{
+						A = pSettings->r_float("bobbing_effector", "run_amplitude") * crouch_factor * HUD_BOB_AMPLITUDE;
+						ST = pSettings->r_float("bobbing_effector", "run_speed") * HUD_BOB_SPEED * m_fHudBobbingTime * crouch_factor;
+					}
+					else
+					{
+						A = pSettings->r_float("bobbing_effector", "walk_amplitude") * crouch_factor * HUD_BOB_AMPLITUDE;
+						ST = pSettings->r_float("bobbing_effector", "walk_speed") * HUD_BOB_SPEED * m_fHudBobbingTime * crouch_factor;
+					}
+
+					const float sin_a = _abs(_sin(ST) * A) * m_fHudBobbingReminder;
+					const float cos_a = _cos(ST) * A * m_fHudBobbingReminder;
+
+					// trans.j is HUD-up. Invert this term so the weapon/bolt
+					// moves DOWN on the footstep instead of floating upward.
+					//trans.c.mad(trans.j, -sin_a * HUD_BOB_POSITION_SCALE);
+					trans.c.mad(trans.j, -sin_a * HUD_BOB_VERTICAL_SCALE);
+
+					Fmatrix bob_rotation;
+					bob_rotation.identity();
+					bob_rotation.setHPB(cos_a * HUD_BOB_ROTATION_SCALE,
+						                sin_a * HUD_BOB_ROTATION_SCALE,
+						                cos_a * HUD_BOB_ROTATION_SCALE);
+					trans.mulB_43(bob_rotation);
+				}
+			}
+
 			UpdateHudAdditonal							(trans);
 			m_pHUD->UpdatePosition						(trans);
 		}

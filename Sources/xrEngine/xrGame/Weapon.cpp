@@ -1421,7 +1421,7 @@ void CWeapon::UpdateHudAdditonal		(Fmatrix& trans)
 	// Same mechanism as CHudItem::UpdateHudInertion: view-direction delta
 	// is used to offset the HUD in the opposite direction.
 	{
-		static const float AIM_ORIGIN_OFFSET = -0.025f;
+		//static const float AIM_ORIGIN_OFFSET = -0.025f;
 		static const float AIM_TENDTO_SPEED  = 5.f;
 		static Fvector aim_last_dir = {0,0,0};
 
@@ -1449,6 +1449,8 @@ void CWeapon::UpdateHudAdditonal		(Fmatrix& trans)
 			aim_last_dir = trans.k;
 		}
 	}
+
+
 
 	if(		(pActor->IsZoomAimingMode() && m_fZoomRotationFactor<=1.f) ||
 			(!pActor->IsZoomAimingMode() && m_fZoomRotationFactor>0.f))
@@ -1514,7 +1516,6 @@ bool CWeapon::IsNecessaryItem	    (const shared_str& item_sect)
 {
 	return (std::find(m_ammoTypes.begin(), m_ammoTypes.end(), item_sect) != m_ammoTypes.end() );
 }
-
 void CWeapon::modify_holder_params		(float &range, float &fov) const
 {
 	if (!IsScopeAttached()) {

@@ -441,6 +441,7 @@ public:
 	bool					CanRun					();
 	void					StopAnyMove				();
 
+	IC u32 GetMovementState() const { return mstate_real; }
 	bool					AnyAction				()	{return (mstate_real & mcAnyAction) != 0;};
 
 	bool					is_jump					();		
