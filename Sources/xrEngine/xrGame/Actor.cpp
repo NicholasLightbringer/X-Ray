@@ -141,7 +141,7 @@ CActor::CActor() : CEntityAlive()
 
 	m_pPhysicsShell			=	NULL;
 
-
+	m_bHudLandingEvent = false;
 
 	m_holder				=	NULL;
 	m_holderID				=	u16(-1);

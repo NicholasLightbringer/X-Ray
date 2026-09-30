@@ -444,7 +444,8 @@ public:
 	IC u32 GetMovementState() const { return mstate_real; }
 	bool					AnyAction				()	{return (mstate_real & mcAnyAction) != 0;};
 
-	bool					is_jump					();		
+	bool					is_jump					();	
+	bool m_bHudLandingEvent;
 protected:
 	u32						mstate_wishful;
 	u32						mstate_old;
