@@ -203,7 +203,8 @@ void CHudItem::UpdateHudPosition	()
 
 				const u32 mstate = pActor->GetMovementState();
 
-				if (mstate & mcAnyMove)
+				if ((mstate & mcAnyMove) &&
+					!(mstate & (mcJump | mcFall | mcLanding | mcLanding2)))
 				{
 					if (m_fHudBobbingReminder < 1.f)
 						m_fHudBobbingReminder += HUD_BOB_REMINDER_SPEED * Device.fTimeDelta;
