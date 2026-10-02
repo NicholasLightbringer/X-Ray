@@ -169,8 +169,12 @@ void CUICharacterInfo::InitCharacter(u16 id)
 
 	CStringTable	stbl;
 	string256		str;
-	if(m_icons[eUIName]){
-		m_icons[eUIName]->SetText	(T->m_character_name.c_str());
+	if (m_icons[eUIName])
+	{
+		if (Actor() && m_ownerID == Actor()->ID())
+			m_icons[eUIName]->SetText(Actor()->Name());
+		else
+			m_icons[eUIName]->SetText(T->m_character_name.c_str());
 	}
 
 	if(m_icons[eUIRank]){
@@ -189,8 +193,12 @@ void CUICharacterInfo::InitCharacter(u16 id)
 		m_icons[eUICommunity]->SetText(str);
 	}
 
-	m_texture_name										= chInfo.IconName().c_str();
-	m_icons[eUIIcon]->InitTexture						( m_texture_name.c_str() );
+	if (Actor() && m_ownerID == Actor()->ID())
+		m_texture_name = Actor()->CharacterIcon();
+	else
+		m_texture_name = chInfo.IconName().c_str();
+
+	m_icons[eUIIcon]->InitTexture(m_texture_name.c_str());
 	m_icons[eUIIcon]->SetStretchTexture					(true);
 
 	// Bio

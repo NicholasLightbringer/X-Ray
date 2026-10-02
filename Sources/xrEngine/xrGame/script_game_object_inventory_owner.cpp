@@ -461,6 +461,37 @@ int CScriptGameObject::CharacterRank			()
 	} 	
 	return monster->Rank();
 }
+void CScriptGameObject::SetActorName(LPCSTR name)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+
+	if (!pActor)
+	{
+		ai().script_engine().script_log(
+			ScriptStorage::eLuaMessageTypeError,
+			"SetActorName available only for actor"
+		);
+		return;
+	}
+
+	pActor->SetGameName(name);
+}
+
+void CScriptGameObject::SetActorIcon(LPCSTR icon)
+{
+	CActor* pActor = smart_cast<CActor*>(&object());
+
+	if (!pActor)
+	{
+		ai().script_engine().script_log(
+			ScriptStorage::eLuaMessageTypeError,
+			"SetActorIcon available only for actor"
+		);
+		return;
+	}
+
+	pActor->SetCharacterIcon(icon);
+}
 void CScriptGameObject::SetCharacterRank			(int char_rank)
 {
 	CInventoryOwner* pInventoryOwner = smart_cast<CInventoryOwner*>(&object());

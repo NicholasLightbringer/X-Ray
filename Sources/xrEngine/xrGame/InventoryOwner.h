@@ -149,6 +149,18 @@ public:
 	virtual void			SetReputation	(CHARACTER_REPUTATION_VALUE);
 	virtual void			ChangeReputation(CHARACTER_REPUTATION_VALUE);
 
+	void SetGameName(LPCSTR name) { m_game_name = name ? name : ""; }
+
+	void SetCharacterIcon(LPCSTR icon)
+	{
+		m_character_icon = icon ? icon : "";
+	}
+
+	LPCSTR CharacterIcon() const
+	{
+		return m_character_icon.size() ? *m_character_icon : *SpecificCharacter().IconName();
+	}
+
 	//для работы с relation system
 	u16								object_id	() const;
 	CHARACTER_COMMUNITY_INDEX		Community	() const {return CharacterInfo().Community().index();};
@@ -158,6 +170,7 @@ public:
 protected:
 	CCharacterInfo*			m_pCharacterInfo;
 	xr_string				m_game_name;
+	shared_str m_character_icon;
 
 public:
 	virtual void			renderable_Render		();
