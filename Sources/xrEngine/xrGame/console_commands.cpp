@@ -1393,9 +1393,11 @@ void CCC_RegisterCommands()
 	psHUD_Flags.set(HUD_WEAPON,			true);
 	psHUD_Flags.set(HUD_DRAW,			true);
 	psHUD_Flags.set(HUD_INFO,			true);
+	psHUD_Flags.set(HUD_CURSOR_WEAPON, true);
 
 	CMD3(CCC_Mask,				"hud_crosshair",		&psHUD_Flags,	HUD_CROSSHAIR);
 	CMD3(CCC_Mask,				"hud_crosshair_dist",	&psHUD_Flags,	HUD_CROSSHAIR_DIST);
+	CMD3(CCC_Mask, "hud_cursor_weapon", &psHUD_Flags, HUD_CURSOR_WEAPON);
 
 #ifdef DEBUG
 	CMD4(CCC_Float,				"hud_fov",				&psHUD_FOV,		0.1f,	1.0f);
