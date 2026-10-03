@@ -305,13 +305,22 @@ void CHudItem::UpdateHudPosition	()
 					m_fHudJumpEffectTime = 0.f;
 				}
 
+				/*if (!airborne && !pActor->m_bHudLandingEvent && m_bHudWasAirborne)
+				{
+					trans.c.mad(trans.j, HUD_JUMP_UP);
+
+					Fmatrix jump_rotation;
+					jump_rotation.identity();
+					jump_rotation.rotateX(HUD_JUMP_PITCH_UP);
+
+					trans.mulB_43(jump_rotation);
+				}*/
+
 				m_bHudWasAirborne = airborne;
 
 
-				if (airborne && m_fHudJumpEffectTime < HUD_JUMP_DURATION)
+				if (airborne)
 				{
-					if (airborne)
-					{
 						m_fHudJumpEffectTime += Device.fTimeDelta;
 
 						float t = m_fHudJumpEffectTime / HUD_JUMP_DURATION;
@@ -363,7 +372,6 @@ void CHudItem::UpdateHudPosition	()
 						jump_rotation.rotateX(pitch);
 
 						trans.mulB_43(jump_rotation);
-					}
 				}
 
 
