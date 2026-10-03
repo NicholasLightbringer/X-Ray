@@ -24,6 +24,7 @@
 #include "UI/UIStatic.h"
 #include "CharacterPhysicsSupport.h"
 #include "InventoryBox.h"
+#include "WeaponMagazined.h"
 
 bool g_bAutoClearCrouch = true;
 
@@ -194,8 +195,27 @@ void CActor::IR_OnKeyboardPress(int cmd)
 				_s->wnd()->SetText(str);
 			}
 		}
-	}
-	break;
+	} break;
+
+	case kUNLOAD_ALL_WEAPONS:
+	{
+		TIItemContainer::iterator I = inventory().m_all.begin();
+		TIItemContainer::iterator E = inventory().m_all.end();
+
+		for (; I != E; ++I)
+		{
+			PIItem item = *I;
+
+			if (!item || inventory().InSlot(item))
+				continue;
+
+			CWeaponMagazined* weapon =
+				smart_cast<CWeaponMagazined*>(item);
+
+			if (weapon)
+				weapon->UnloadMagazine();
+		}
+	} break;
 	}
 }
 void CActor::IR_OnMouseWheel(int direction)

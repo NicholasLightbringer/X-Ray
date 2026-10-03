@@ -100,6 +100,7 @@ _action  actions[]		= {
 	{ "use_food",    kUSE_FOOD,    _sp },
 
 	{ "take_all", kTAKE_ALL, _sp},
+	{ "unload_all_weapons", kUNLOAD_ALL_WEAPONS, _sp },
 
 	{ "quick_save",			kQUICK_SAVE				,_sp},		
 	{ "quick_load",			kQUICK_LOAD				,_sp},		
