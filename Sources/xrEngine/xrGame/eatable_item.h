@@ -1,6 +1,7 @@
 #pragma once
 
 #include "inventory_item.h"
+#include "HudSound.h"
 
 class CPhysicItem;
 class CEntityAlive;
@@ -11,6 +12,10 @@ private:
 
 private:
 	CPhysicItem		*m_physic_item;
+	HUD_SOUND m_useSound;
+
+public:
+	void PlayUseSound(CEntityAlive* entity_alive);
 
 public:
 							CEatableItem				();

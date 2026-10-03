@@ -899,6 +899,9 @@ bool CInventory::Eat(PIItem pIItem)
 	
 	pItemToEat->UseBy		(entity_alive);
 
+	if (entity_alive == Actor())
+		pItemToEat->PlayUseSound(entity_alive);
+
 	if(IsGameTypeSingle() && Actor()->m_inventory == this)
 		Actor()->callback(GameObject::eUseObject)((smart_cast<CGameObject*>(pIItem))->lua_game_object());
 
