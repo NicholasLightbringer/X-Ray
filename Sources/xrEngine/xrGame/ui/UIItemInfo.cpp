@@ -149,7 +149,7 @@ void CUIItemInfo::InitItem(CInventoryItem* pInvItem)
 	}
 	if( UICost && IsGameTypeSingle() )
 	{
-		sprintf_s				(str, "%d RU", pInvItem->Cost());		// will be owerwritten in multiplayer
+		sprintf_s				(str, "%d %s", pInvItem->Cost(), *CStringTable().translate("st_money_name"));		// will be owerwritten in multiplayer
 		UICost->SetText		(str);
 	}
 
