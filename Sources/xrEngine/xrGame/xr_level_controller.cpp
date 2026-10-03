@@ -94,7 +94,13 @@ _action  actions[]		= {
 	{ "speech_menu_9",		kSPEECH_MENU_9			,_mp},		
 																
 	{ "use_bandage",		kUSE_BANDAGE			,_sp},		
-	{ "use_medkit",			kUSE_MEDKIT				,_sp},		
+	{ "use_medkit",			kUSE_MEDKIT				,_sp},
+	
+	{ "use_antirad", kUSE_ANTIRAD, _sp },
+	{ "use_food",    kUSE_FOOD,    _sp },
+
+	{ "take_all", kTAKE_ALL, _sp},
+
 	{ "quick_save",			kQUICK_SAVE				,_sp},		
 	{ "quick_load",			kQUICK_LOAD				,_sp},		
 																
