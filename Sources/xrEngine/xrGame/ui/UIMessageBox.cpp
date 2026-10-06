@@ -260,6 +260,40 @@ LPCSTR CUIMessageBox::GetText()
 	return m_UIStaticText->GetText();
 }
 
+void CUIMessageBox::SetButtonsVisible(bool visible)
+{
+	SetButtonsVisible(visible, visible, visible);
+}
+
+void CUIMessageBox::SetButtonsVisible(bool yes_ok_visible, bool no_visible, bool cancel_visible)
+{
+	if (m_UIButtonYesOk)
+		m_UIButtonYesOk->Show(yes_ok_visible);
+
+	if (m_UIButtonNo)
+		m_UIButtonNo->Show(no_visible);
+
+	if (m_UIButtonCancel)
+		m_UIButtonCancel->Show(cancel_visible);
+}
+
+void CUIMessageBox::SetOkButtonText(LPCSTR text)
+{
+	if (m_UIButtonYesOk && text)
+		m_UIButtonYesOk->SetText(text);
+}
+
+void CUIMessageBox::SetOkButtonTextST(LPCSTR str_id)
+{
+	if (m_UIButtonYesOk && str_id)
+		m_UIButtonYesOk->SetTextST(str_id);
+}
+
+LPCSTR CUIMessageBox::GetOkButtonText()
+{
+	return m_UIButtonYesOk ? m_UIButtonYesOk->GetText() : "";
+}
+
 LPCSTR CUIMessageBox::GetHost(){
 	if (m_UIEditHost){
 		m_ret_val.clear();

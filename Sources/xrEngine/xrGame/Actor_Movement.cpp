@@ -37,6 +37,7 @@ IC static void generate_orthonormal_basis1(const Fvector& dir,Fvector& updir, Fv
 
 void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 {
+	m_bHudLandingEvent = false;
 	// Lookout
 	if (mstate_wf&mcLookout)	mstate_real		|= mstate_wf&mcLookout;
 	else						mstate_real		&= ~mcLookout;
@@ -55,6 +56,7 @@ void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 	// закончить падение
 	if (character_physics_support()->movement()->gcontact_Was){
 		if (mstate_real&mcFall){
+			m_bHudLandingEvent = true;
 			if (character_physics_support()->movement()->GetContactSpeed()>4.f){
 				if (fis_zero(character_physics_support()->movement()->gcontact_HealthLost)){	
 					m_fLandingTime	= s_fLandingTime1;

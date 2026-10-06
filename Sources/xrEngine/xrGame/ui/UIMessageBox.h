@@ -31,6 +31,11 @@ public:
 			void Clear				();
 	virtual void SetText			(LPCSTR str);
 	virtual LPCSTR GetText			();
+	void		 SetButtonsVisible		(bool visible);
+	void		 SetButtonsVisible		(bool yes_ok_visible, bool no_visible, bool cancel_visible);
+	void		 SetOkButtonText			(LPCSTR text);
+	void		 SetOkButtonTextST		(LPCSTR str_id);
+	LPCSTR		 GetOkButtonText			();
 	LPCSTR		 GetHost			();
 	LPCSTR		 GetPassword		();
 	LPCSTR		 GetUserPassword	();

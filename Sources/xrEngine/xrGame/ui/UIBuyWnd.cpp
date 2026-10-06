@@ -294,6 +294,7 @@ void CUIBuyWnd::Update()
 }
 
 #include "../../xr_input.h"
+#include "../string_table.h"
 
 void CUIBuyWnd::OnBtnBulletBuy(int slot)
 {
@@ -612,7 +613,8 @@ void CUIBuyWnd::SetCurrentItem(CUICellItem* itm)
 	{
 		string256					str;
 		m_itemInfo.InitItem			(CurrentIItem());
-		sprintf_s						(str, "%d RU", m_bag.GetItemPrice(itm));
+		sprintf_s						(str, "%d %s", m_bag.GetItemPrice(itm));
+		*CStringTable().translate("st_money_name"),
 		m_itemInfo.UICost->SetText	(str);
 
 		string64					tex_name;

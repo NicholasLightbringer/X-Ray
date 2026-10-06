@@ -15,6 +15,7 @@
 #include "entity_alive.h"
 #include "EntityCondition.h"
 #include "InventoryOwner.h"
+#include "ai_sounds.h"
 
 CEatableItem::CEatableItem()
 {
@@ -30,6 +31,7 @@ CEatableItem::CEatableItem()
 
 CEatableItem::~CEatableItem()
 {
+	HUD_SOUND::DestroySound(m_useSound);
 }
 
 DLL_Pure *CEatableItem::_construct	()
@@ -42,6 +44,9 @@ void CEatableItem::Load(LPCSTR section)
 {
 	inherited::Load(section);
 
+	if (pSettings->line_exist(section, "use_sound"))
+		HUD_SOUND::LoadSound(section, "use_sound", m_useSound, SOUND_TYPE_ITEM_USING);
+
 	m_fHealthInfluence			= pSettings->r_float(section, "eat_health");
 	m_fPowerInfluence			= pSettings->r_float(section, "eat_power");
 	m_fSatietyInfluence			= pSettings->r_float(section, "eat_satiety");
@@ -52,6 +57,24 @@ void CEatableItem::Load(LPCSTR section)
 	m_iStartPortionsNum			= pSettings->r_s32	(section, "eat_portions_num");
 	m_fMaxPowerUpInfluence		= READ_IF_EXISTS	(pSettings,r_float,section,"eat_max_power",0.0f);
 	VERIFY						(m_iPortionsNum<10000);
+}
+
+void CEatableItem::PlayUseSound(CEntityAlive* entity_alive)
+{
+	if (m_useSound.sounds.empty())
+		return;
+
+	HUD_SOUND::SSnd& sound =
+		m_useSound.sounds[Random.randI(m_useSound.sounds.size())];
+
+	sound.snd.play_no_feedback(
+		entity_alive,
+		sm_2D,
+		sound.delay,
+		0,
+		0,
+		&sound.volume
+	);
 }
 
 BOOL CEatableItem::net_Spawn				(CSE_Abstract* DC)

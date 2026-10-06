@@ -25,6 +25,12 @@ CHudItem::CHudItem(void)
 
 	m_bInertionEnable	= true;
 	m_bInertionAllow	= true;
+	m_fHudBobbingTime		= 0.f;
+	m_fHudBobbingReminder	= 0.f;
+	m_fHudJumpEffectTime = 0.f;
+	m_fHudLandingEffectTime = 0.f;
+	m_fHudLandingDelayTime = 0.f;
+	m_bHudWasAirborne = false;
 }
 
 CHudItem::~CHudItem(void)
@@ -179,6 +185,263 @@ void CHudItem::UpdateHudPosition	()
 		if(pActor){
 			pActor->Cameras().camera_Matrix				(trans);
 			UpdateHudInertion							(trans);
+
+			const u32 mstate = pActor->GetMovementState();
+
+			// HUD weapon/hand bobbing.
+			// This is intentionally done at the common CHudItem level so the
+			// same effect is applied to weapons and CMissile-derived items
+			// (including the bolt).
+			{
+				static const float HUD_BOB_REMINDER_SPEED = 5.f;
+				//static const float HUD_BOB_VERTICAL_SCALE = 1.8f;
+				static const float HUD_BOB_ROTATION_SCALE = 1.0f;
+				static const float HUD_BOB_CROUCH_FACTOR = 0.75f;
+
+				static const float HUD_BOB_SPEED = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_bobbing_speed", 0.75f);
+
+				static const float HUD_BOB_AMPLITUDE = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_bobbing_amplitude", 1.0f);
+
+				static const float HUD_BOB_VERTICAL_SCALE = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_bobbing_vertical", 1.8f);
+
+				if ((mstate & mcAnyMove) &&
+					!(mstate & (mcJump | mcFall | mcLanding | mcLanding2)))
+				{
+					if (m_fHudBobbingReminder < 1.f)
+						m_fHudBobbingReminder += HUD_BOB_REMINDER_SPEED * Device.fTimeDelta;
+					else
+						m_fHudBobbingReminder = 1.f;
+				}
+				else
+				{
+					if (m_fHudBobbingReminder > 0.f)
+						m_fHudBobbingReminder -= HUD_BOB_REMINDER_SPEED * Device.fTimeDelta;
+					else
+						m_fHudBobbingReminder = 0.f;
+				}
+
+				clamp(m_fHudBobbingReminder, 0.f, 1.f);
+
+				if (!fsimilar(m_fHudBobbingReminder, 0.f))
+				{
+					m_fHudBobbingTime += Device.fTimeDelta;
+
+					const float crouch_factor =
+						(mstate & mcCrouch) ? HUD_BOB_CROUCH_FACTOR : 1.f;
+
+					float A;
+					float ST;
+
+					if (isActorAccelerated(mstate, pActor->IsZoomAimingMode()))
+					{
+						A = pSettings->r_float("bobbing_effector", "run_amplitude") * crouch_factor * HUD_BOB_AMPLITUDE;
+						ST = pSettings->r_float("bobbing_effector", "run_speed") * HUD_BOB_SPEED * m_fHudBobbingTime * crouch_factor;
+					}
+					else
+					{
+						A = pSettings->r_float("bobbing_effector", "walk_amplitude") * crouch_factor * HUD_BOB_AMPLITUDE;
+						ST = pSettings->r_float("bobbing_effector", "walk_speed") * HUD_BOB_SPEED * m_fHudBobbingTime * crouch_factor;
+					}
+
+					const float sin_a = _abs(_sin(ST) * A) * m_fHudBobbingReminder;
+					const float cos_a = _cos(ST) * A * m_fHudBobbingReminder;
+
+					// trans.j is HUD-up. Invert this term so the weapon/bolt
+					// moves DOWN on the footstep instead of floating upward.
+					//trans.c.mad(trans.j, -sin_a * HUD_BOB_POSITION_SCALE);
+					trans.c.mad(trans.j, -sin_a * HUD_BOB_VERTICAL_SCALE);
+
+					Fmatrix bob_rotation;
+					bob_rotation.identity();
+					bob_rotation.setHPB(cos_a * HUD_BOB_ROTATION_SCALE,
+						                sin_a * HUD_BOB_ROTATION_SCALE,
+						                cos_a * HUD_BOB_ROTATION_SCALE);
+					trans.mulB_43(bob_rotation);
+				}
+			}
+
+			// HUD jump / landing effect
+			{
+				const float HUD_JUMP_DURATION = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_jump_duration", 0.75f);
+
+				const float HUD_JUMP_DOWN = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_jump_down", 0.018f);
+
+				const float HUD_JUMP_UP = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_jump_up", 0.012f);
+
+				const float HUD_JUMP_PITCH_DOWN = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_jump_pitch_down", 0.035f);
+
+				const float HUD_JUMP_PITCH_UP = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_jump_pitch_up", -0.025f);
+
+				const float HUD_LANDING_DURATION = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_landing_duration", 0.22f);
+
+				const float HUD_LANDING_DOWN = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_landing_down", 0.020f);
+
+				const float HUD_LANDING_PITCH_DOWN = READ_IF_EXISTS(
+					pSettings, r_float, "bobbing_effector", "hud_landing_pitch_down", 0.035f);
+
+
+				const bool airborne = (mstate & (mcJump | mcFall)) != 0;
+				const bool landing = (mstate & (mcLanding | mcLanding2)) != 0;
+
+
+				// ------------------------------------------------------------
+				// JUMP
+				// Запускается один раз при переходе в воздух.
+				// Приземление здесь НЕ проигрывается.
+				// ------------------------------------------------------------
+
+				if (airborne && !m_bHudWasAirborne)
+				{
+					m_fHudJumpEffectTime = 0.f;
+				}
+
+				/*if (!airborne && !pActor->m_bHudLandingEvent && m_bHudWasAirborne)
+				{
+					trans.c.mad(trans.j, HUD_JUMP_UP);
+
+					Fmatrix jump_rotation;
+					jump_rotation.identity();
+					jump_rotation.rotateX(HUD_JUMP_PITCH_UP);
+
+					trans.mulB_43(jump_rotation);
+				}*/
+
+				m_bHudWasAirborne = airborne;
+
+
+				if (airborne)
+				{
+						m_fHudJumpEffectTime += Device.fTimeDelta;
+
+						float t = m_fHudJumpEffectTime / HUD_JUMP_DURATION;
+						clamp(t, 0.f, 1.f);
+
+						float offset = 0.f;
+						float pitch = 0.f;
+
+						// Плавность переходов.
+						auto smooth = [](float x)
+							{
+								return x * x * (3.f - 2.f * x);
+							};
+
+						// 1. Оружие плавно опускается.
+						if (t < 0.35f)
+						{
+							float k = smooth(t / 0.35f);
+
+							offset = -HUD_JUMP_DOWN * k;
+							pitch = HUD_JUMP_PITCH_DOWN * k;
+						}
+
+						// 2. Затем плавно поднимается выше исходной позиции.
+						else if (t < 1.f)
+						{
+							float k = smooth((t - 0.35f) / 0.65f);
+
+							offset = -HUD_JUMP_DOWN +
+								(HUD_JUMP_DOWN + HUD_JUMP_UP) * k;
+
+							pitch = HUD_JUMP_PITCH_DOWN +
+								(HUD_JUMP_PITCH_UP - HUD_JUMP_PITCH_DOWN) * k;
+						}
+
+						// После окончания прыжковой фазы
+						// удерживаем оружие в верхнем положении
+						// до фактического приземления.
+						else
+						{
+							offset = HUD_JUMP_UP;
+							pitch = HUD_JUMP_PITCH_UP;
+						}
+
+						trans.c.mad(trans.j, offset);
+
+						Fmatrix jump_rotation;
+						jump_rotation.identity();
+						jump_rotation.rotateX(pitch);
+
+						trans.mulB_43(jump_rotation);
+				}
+
+
+				// ------------------------------------------------------------
+				// LANDING
+				// Полностью отдельное событие.
+				// Стартует только при фактическом переходе в landing.
+				// ------------------------------------------------------------
+
+				if (pActor->m_bHudLandingEvent)
+				{
+					m_fHudLandingEffectTime = 0.0001f;
+				}
+
+				if (m_fHudLandingDelayTime > 0.f)
+				{
+					m_fHudLandingDelayTime -= Device.fTimeDelta;
+
+					if (m_fHudLandingDelayTime <= 0.f)
+						m_fHudLandingEffectTime = 0.0001f;
+				}
+
+				if (m_fHudLandingEffectTime > 0.f &&
+					m_fHudLandingEffectTime < HUD_LANDING_DURATION)
+				{
+					m_fHudLandingEffectTime += Device.fTimeDelta;
+
+					float t = m_fHudLandingEffectTime / HUD_LANDING_DURATION;
+					clamp(t, 0.f, 1.f);
+
+					float offset = 0.f;
+					float pitch = 0.f;
+
+					auto smooth = [](float x)
+						{
+							return x * x * (3.f - 2.f * x);
+						};
+
+					// Сначала плавно переходим
+					// из верхней точки прыжка в нижнюю точку приземления.
+					if (t < 0.35f)
+					{
+						float k = smooth(t / 0.35f);
+
+						offset = HUD_JUMP_UP +
+							(-HUD_LANDING_DOWN - HUD_JUMP_UP) * k;
+
+						pitch = HUD_JUMP_PITCH_UP +
+							(HUD_LANDING_PITCH_DOWN - HUD_JUMP_PITCH_UP) * k;
+					}
+
+					// Затем плавно возвращаемся в исходное положение.
+					else
+					{
+						float k = smooth((t - 0.35f) / 0.65f);
+
+						offset = -HUD_LANDING_DOWN * (1.f - k);
+						pitch = HUD_LANDING_PITCH_DOWN * (1.f - k);
+					}
+
+					trans.c.mad(trans.j, offset);
+
+					Fmatrix landing_rotation;
+					landing_rotation.identity();
+					landing_rotation.rotateX(pitch);
+
+					trans.mulB_43(landing_rotation);
+				}
+			}
+			
 			UpdateHudAdditonal							(trans);
 			m_pHUD->UpdatePosition						(trans);
 		}

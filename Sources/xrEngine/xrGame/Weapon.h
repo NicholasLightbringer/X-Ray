@@ -234,6 +234,9 @@ protected:
 	//мы перемещаем HUD  
 	float			m_fZoomRotationFactor;
 	bool			m_bHideCrosshairInZoom;
+	// Per-weapon ADS HUD inertia settings.
+	bool			m_bAimHudInertion;
+	float			m_fAimHudInertionStrength;
 public:
 
 	IC bool					IsZoomEnabled		()	const	{return m_bZoomEnabled;}

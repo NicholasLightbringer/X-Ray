@@ -311,6 +311,8 @@ public:
 			int					CharacterRank		();
 			int					CharacterReputation	();
 
+			void SetActorName(LPCSTR name);
+			void SetActorIcon(LPCSTR icon);
 
 			void SetCharacterRank			(int);
 			void ChangeCharacterRank		(int);

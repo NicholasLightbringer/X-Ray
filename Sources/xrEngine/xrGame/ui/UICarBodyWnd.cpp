@@ -392,12 +392,17 @@ bool CUICarBodyWnd::OnKeyboard(int dik, EUIMessages keyboard_action)
 {
 	if( inherited::OnKeyboard(dik,keyboard_action) )return true;
 
-	if(keyboard_action==WINDOW_KEY_PRESSED && is_binded(kUSE, dik)) 
+	if (keyboard_action == WINDOW_KEY_PRESSED && is_binded(kTAKE_ALL, dik))
 	{
-			GetHolder()->StartStopMenu(this,true);
-			return true;
+		TakeAll();
+		return true;
 	}
-	return false;
+
+	if (keyboard_action == WINDOW_KEY_PRESSED && is_binded(kUSE, dik))
+	{
+		GetHolder()->StartStopMenu(this, true);
+		return true;
+	}
 }
 
 #include "../Medkit.h"

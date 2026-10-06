@@ -141,7 +141,7 @@ CActor::CActor() : CEntityAlive()
 
 	m_pPhysicsShell			=	NULL;
 
-
+	m_bHudLandingEvent = false;
 
 	m_holder				=	NULL;
 	m_holderID				=	u16(-1);
@@ -912,7 +912,10 @@ void CActor::UpdateCL	()
 			float fire_disp_full = pWeapon->GetFireDispersion(true);
 
 			HUD().SetCrosshairDisp(fire_disp_full, 0.02f);
-			HUD().ShowCrosshair(pWeapon->use_crosshair());
+			HUD().ShowCrosshair(
+				pWeapon->use_crosshair() &&
+				!psHUD_Flags.test(HUD_CURSOR_WEAPON)
+			);
 
 			psHUD_Flags.set( HUD_CROSSHAIR_RT2, pWeapon->show_crosshair() );
 			psHUD_Flags.set( HUD_DRAW_RT,		pWeapon->show_indicators() );

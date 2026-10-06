@@ -181,6 +181,8 @@ class_<CScriptGameObject> &script_register_game_object2(class_<CScriptGameObject
 		//////////////////////////////////////////////////////////////////////////
 		.def("profile_name",				&CScriptGameObject::ProfileName)
 		.def("character_name",				&CScriptGameObject::CharacterName)
+		.def("set_actor_name", &CScriptGameObject::SetActorName)
+		.def("set_actor_icon", &CScriptGameObject::SetActorIcon)
 		.def("character_rank",				&CScriptGameObject::CharacterRank)
 		.def("set_character_rank",			&CScriptGameObject::SetCharacterRank)
 		.def("character_reputation",		&CScriptGameObject::CharacterReputation)

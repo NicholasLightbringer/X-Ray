@@ -85,8 +85,13 @@ enum	EGameActions
 	kSPEECH_MENU_9,
 						
 	kUSE_BANDAGE,
-	kUSE_MEDKIT,		
-	
+	kUSE_MEDKIT,
+	kUSE_ANTIRAD,
+	kUSE_FOOD,
+
+	kTAKE_ALL,
+	kUNLOAD_ALL_WEAPONS,
+
 	kQUICK_SAVE,
 	kQUICK_LOAD,
 

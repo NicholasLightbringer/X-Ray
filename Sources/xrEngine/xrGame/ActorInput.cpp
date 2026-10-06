@@ -24,6 +24,7 @@
 #include "UI/UIStatic.h"
 #include "CharacterPhysicsSupport.h"
 #include "InventoryBox.h"
+#include "WeaponMagazined.h"
 
 bool g_bAutoClearCrouch = true;
 
@@ -143,21 +144,78 @@ void CActor::IR_OnKeyboardPress(int cmd)
 
 	case kUSE_BANDAGE:
 	case kUSE_MEDKIT:
+	case kUSE_ANTIRAD:
+	case kUSE_FOOD:
+	{
+		if (IsGameTypeSingle())
 		{
-			if(IsGameTypeSingle())
+			CLASS_ID cls_id = CLSID_IITEM_BANDAGE;
+
+			switch (cmd)
 			{
-				PIItem itm = inventory().item((cmd==kUSE_BANDAGE)?  CLSID_IITEM_BANDAGE:CLSID_IITEM_MEDKIT );	
-				if(itm)
-				{
-					inventory().Eat				(itm);
-					SDrawStaticStruct* _s		= HUD().GetUI()->UIGame()->AddCustomStatic("item_used", true);
-					_s->m_endTime				= Device.fTimeGlobal+3.0f;// 3sec
-					string1024					str;
-					strconcat					(sizeof(str),str,*CStringTable().translate("st_item_used"),": ", itm->Name());
-					_s->wnd()->SetText			(str);
-				}
+			case kUSE_BANDAGE:
+				cls_id = CLSID_IITEM_BANDAGE;
+				break;
+
+			case kUSE_MEDKIT:
+				cls_id = CLSID_IITEM_MEDKIT;
+				break;
+
+			case kUSE_ANTIRAD:
+				cls_id = CLSID_IITEM_ANTIRAD;
+				break;
+
+			case kUSE_FOOD:
+				cls_id = CLSID_IITEM_FOOD;
+				break;
+
 			}
-		}break;
+
+			PIItem itm = inventory().item(cls_id);
+
+			if (itm)
+			{
+				inventory().Eat(itm);
+
+				SDrawStaticStruct* _s =
+					HUD().GetUI()->UIGame()->AddCustomStatic("item_used", true);
+
+				_s->m_endTime = Device.fTimeGlobal + 3.0f;
+
+				string1024 str;
+
+				strconcat(
+					sizeof(str),
+					str,
+					*CStringTable().translate("st_item_used"),
+					": ",
+					itm->Name()
+				);
+
+				_s->wnd()->SetText(str);
+			}
+		}
+	} break;
+
+	case kUNLOAD_ALL_WEAPONS:
+	{
+		TIItemContainer::iterator I = inventory().m_all.begin();
+		TIItemContainer::iterator E = inventory().m_all.end();
+
+		for (; I != E; ++I)
+		{
+			PIItem item = *I;
+
+			if (!item || inventory().InSlot(item))
+				continue;
+
+			CWeaponMagazined* weapon =
+				smart_cast<CWeaponMagazined*>(item);
+
+			if (weapon)
+				weapon->UnloadMagazine();
+		}
+	} break;
 	}
 }
 void CActor::IR_OnMouseWheel(int direction)

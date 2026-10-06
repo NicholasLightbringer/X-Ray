@@ -164,7 +164,7 @@ void CUIGameSP::ReInitShownUI()
 
 
 extern ENGINE_API BOOL bShowPauseString;
-void CUIGameSP::ChangeLevel				(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b)
+void CUIGameSP::ChangeLevel				(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b, LPCSTR invitation)
 {
 	if( !MainInputReceiver() || MainInputReceiver()!=UIChangeLevelWnd)
 	{
@@ -175,7 +175,20 @@ void CUIGameSP::ChangeLevel				(GameGraph::_GRAPH_ID game_vert_id, u32 level_ver
 		UIChangeLevelWnd->m_position_cancel		= pos2;
 		UIChangeLevelWnd->m_angles_cancel		= ang2;
 		UIChangeLevelWnd->m_b_position_cancel	= b;
+		UIChangeLevelWnd->SetLevelChangerMessage(invitation, false);
 		m_game->StartStopMenu					(UIChangeLevelWnd,true);
+	}
+}
+
+void CUIGameSP::LevelChangerDisabled(LPCSTR message, Fvector pos, Fvector ang, bool b)
+{
+	if( !MainInputReceiver() || MainInputReceiver()!=UIChangeLevelWnd)
+	{
+		UIChangeLevelWnd->m_position_cancel = pos;
+		UIChangeLevelWnd->m_angles_cancel = ang;
+		UIChangeLevelWnd->m_b_position_cancel = b;
+		UIChangeLevelWnd->SetLevelChangerMessage(message, true);
+		m_game->StartStopMenu(UIChangeLevelWnd,true);
 	}
 }
 
@@ -194,6 +207,10 @@ CChangeLevelWnd::CChangeLevelWnd		()
 	m_messageBox			= xr_new<CUIMessageBox>();	m_messageBox->SetAutoDelete(true);
 	AttachChild				(m_messageBox);
 	m_messageBox->Init		("message_box_change_level");
+	m_defaultMessage		= m_messageBox->GetText();
+	m_defaultOkButtonText = m_messageBox->GetOkButtonText();
+	m_levelChangerMessage.clear();
+	m_bLevelChangerBlocked = false;
 	SetWndPos				(m_messageBox->GetWndPos());
 	m_messageBox->SetWndPos	(0.0f,0.0f);
 	SetWndSize				(m_messageBox->GetWndSize());
@@ -202,7 +219,10 @@ void CChangeLevelWnd::SendMessage(CUIWindow *pWnd, s16 msg, void *pData)
 {
 	if(pWnd==m_messageBox){
 		if(msg==MESSAGE_BOX_YES_CLICKED){
-			OnOk									();
+			if (m_bLevelChangerBlocked)
+				OnCancel();
+			else
+				OnOk();
 		}else
 		if(msg==MESSAGE_BOX_NO_CLICKED){
 			OnCancel								();
@@ -213,6 +233,9 @@ void CChangeLevelWnd::SendMessage(CUIWindow *pWnd, s16 msg, void *pData)
 
 void CChangeLevelWnd::OnOk()
 {
+	if (m_bLevelChangerBlocked)
+		return;
+
 	Game().StartStopMenu					(this, true);
 	NET_Packet								p;
 	p.w_begin								(M_CHANGE_LEVEL);
@@ -227,6 +250,7 @@ void CChangeLevelWnd::OnOk()
 void CChangeLevelWnd::OnCancel()
 {
 	Game().StartStopMenu					(this, true);
+
 	if(m_b_position_cancel){
 		Actor()->MoveActor(m_position_cancel, m_angles_cancel);
 	}
@@ -236,16 +260,41 @@ bool CChangeLevelWnd::OnKeyboard(int dik, EUIMessages keyboard_action)
 {
 	if(keyboard_action==WINDOW_KEY_PRESSED)
 	{
+		if (m_bLevelChangerBlocked)
+			return true;
+
 		if(is_binded(kQUIT, dik) )
-			OnCancel		();
+			OnCancel();
 		return true;
 	}
 	return inherited::OnKeyboard(dik, keyboard_action);
 }
 
+void CChangeLevelWnd::SetLevelChangerMessage(LPCSTR message, bool blocked)
+{
+	m_levelChangerMessage = message ? message : "";
+	m_bLevelChangerBlocked = blocked;
+}
+
 bool g_block_pause	= false;
 void CChangeLevelWnd::Show()
 {
+	if (m_levelChangerMessage.empty())
+		m_messageBox->SetText(m_defaultMessage.c_str());
+	else
+		m_messageBox->SetText(m_levelChangerMessage.c_str());
+
+	if (m_bLevelChangerBlocked)
+	{
+		m_messageBox->SetButtonsVisible(true, false, false);
+		m_messageBox->SetOkButtonTextST("st_level_changer_close");
+	}
+	else
+	{
+		m_messageBox->SetButtonsVisible(true);
+		m_messageBox->SetOkButtonText(m_defaultOkButtonText.c_str());
+	}
+
 	g_block_pause							= true;
 	Device.Pause							(TRUE, TRUE, TRUE, "CChangeLevelWnd_show");
 	bShowPauseString						= FALSE;
