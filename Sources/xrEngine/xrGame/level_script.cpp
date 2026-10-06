@@ -594,6 +594,7 @@ void CLevel::script_register(lua_State *L)
 		def("enable_input",						enable_input),
 		def("spawn_phantom",					spawn_phantom),
 
+
 		def("get_bounding_volume",				get_bounding_volume),
 
 		def("iterate_sounds",					&iterate_sounds1),

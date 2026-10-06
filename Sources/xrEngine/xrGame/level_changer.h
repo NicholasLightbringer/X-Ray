@@ -25,6 +25,9 @@ private:
 	void					update_actor_invitation	();
 	bool					m_bSilentMode;
 	bool					get_reject_pos(Fvector& p, Fvector& r);
+	bool				m_bLevelChangerEnabled;
+	shared_str		m_levelChangerInvitation;
+	shared_str		m_levelChangerDisabledMessage;
 public:
 	virtual				~CLevelChanger		();
 	virtual BOOL		net_Spawn			(CSE_Abstract* DC);
@@ -36,4 +39,29 @@ public:
 	virtual BOOL		feel_touch_contact	(CObject* O);
 
 	virtual bool		IsVisibleForZones() { return false;		}
+
+	void				EnableLevelChanger(bool enabled) { m_bLevelChangerEnabled = enabled; }
+	bool				IsLevelChangerEnabled() const { return m_bLevelChangerEnabled; }
+
+	void				SetLevelChangerInvitation(LPCSTR text)
+	{
+		m_levelChangerInvitation = text ? text : "";
+	}
+
+	LPCSTR			LevelChangerInvitation() const
+	{
+		return *m_levelChangerInvitation;
+	}
+
+	void				SetLevelChangerDisabledMessage(LPCSTR text)
+	{
+		m_levelChangerDisabledMessage = text ? text : "st_level_changer_disabled";
+	}
+
+	LPCSTR			LevelChangerDisabledMessage() const
+	{
+		return *m_levelChangerDisabledMessage;
+	}
 };
+
+CLevelChanger* GetLevelChangerBySection(LPCSTR section);

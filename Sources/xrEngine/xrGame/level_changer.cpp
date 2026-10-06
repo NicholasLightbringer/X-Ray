@@ -16,11 +16,227 @@
 #include "ai_space.h"
 #include "level_graph.h"
 #include "game_level_cross_table.h"
+#include "patrol_path.h"
+#include "patrol_path_storage.h"
 
 #include "HudManager.h"
 #include "UIGameSP.h"
 
 xr_vector<CLevelChanger*>	g_lchangers;
+
+CLevelChanger* GetLevelChangerBySection(LPCSTR section)
+{
+	if (!section || !section[0])
+		return NULL;
+
+	// Ищем среди реально существующих объектов уровня.
+	// Это надёжнее, чем g_lchangers: скриптовый вызов может прийти
+	// в момент, когда глобальный список ещё не синхронизирован.
+	for (u32 i = 0; i < Level().Objects.o_count(); ++i)
+	{
+		CGameObject* object =
+			smart_cast<CGameObject*>(Level().Objects.o_get_by_iterator(i));
+		if (!object)
+			continue;
+
+		CLevelChanger* changer = smart_cast<CLevelChanger*>(object);
+		if (!changer)
+			continue;
+
+		if (!xr_strcmp(*changer->cNameSect(), section) ||
+			!xr_strcmp(*changer->cName(), section))
+		{
+			return changer;
+		}
+	}
+
+	Msg("! GetLevelChangerBySection: not found [%s]", section);
+
+	for (u32 i = 0; i < Level().Objects.o_count(); ++i)
+	{
+		CGameObject* object =
+			smart_cast<CGameObject*>(Level().Objects.o_get_by_iterator(i));
+		CLevelChanger* changer = object ? smart_cast<CLevelChanger*>(object) : NULL;
+		if (changer)
+		{
+			Msg("!   available level changer: name=[%s] section=[%s]",
+				*changer->cName(), *changer->cNameSect());
+		}
+	}
+
+	return NULL;
+}
+
+static CInifile* g_level_changers_ini = NULL;
+static bool g_level_changers_ini_checked = false;
+
+static CInifile* level_changers_ini()
+{
+	if (g_level_changers_ini_checked)
+		return g_level_changers_ini;
+
+	g_level_changers_ini_checked = true;
+
+	string_path file_name;
+	FS.update_path(file_name, "$game_config$", "level_changers.ltx");
+
+	if (!FS.exist(file_name))
+		return NULL;
+
+	g_level_changers_ini = xr_new<CInifile>(file_name, TRUE);
+	return g_level_changers_ini;
+}
+
+static void trim_level_changer_string(xr_string& value)
+{
+	while (!value.empty() &&
+		(value[0] == ' ' || value[0] == '\t' || value[0] == '\r' || value[0] == '\n'))
+		value.erase(value.begin());
+
+	while (!value.empty())
+	{
+		const char ch = value[value.size() - 1];
+		if (ch != ' ' && ch != '\t' && ch != '\r' && ch != '\n')
+			break;
+		value.erase(value.size() - 1);
+	}
+}
+
+static LPCSTR level_changer_config_section(const CLevelChanger* changer)
+{
+	CInifile* ini = level_changers_ini();
+	if (!ini || !changer)
+		return NULL;
+
+	LPCSTR name = *changer->cName();
+	if (name && name[0] && ini->section_exist(name))
+		return name;
+
+	LPCSTR section_name = *changer->cNameSect();
+	if (section_name && section_name[0] && ini->section_exist(section_name))
+		return section_name;
+
+	return NULL;
+}
+
+static bool parse_level_changer_bool(LPCSTR value, bool& result)
+{
+	if (!value)
+		return false;
+
+	xr_string parsed = value;
+	trim_level_changer_string(parsed);
+
+	if (!stricmp(parsed.c_str(), "true"))
+	{
+		result = true;
+		return true;
+	}
+
+	if (!stricmp(parsed.c_str(), "false"))
+	{
+		result = false;
+		return true;
+	}
+
+	return false;
+}
+
+static bool level_changer_closed(const CLevelChanger* changer)
+{
+	CInifile* ini = level_changers_ini();
+	LPCSTR section = level_changer_config_section(changer);
+
+	// No config file / no section / no closed key = original behaviour.
+	if (!ini || !section || !ini->line_exist(section, "closed"))
+		return false;
+
+	LPCSTR value = ini->r_string(section, "closed");
+	if (!value || !value[0])
+		return false;
+
+	xr_string expression = value;
+	trim_level_changer_string(expression);
+
+	bool simple_result = false;
+	if (parse_level_changer_bool(expression.c_str(), simple_result))
+		return simple_result;
+
+	if (expression[0] != '{')
+	{
+		Msg("! level_changers.ltx: invalid closed expression in [%s]: %s", section, value);
+		return false;
+	}
+
+	xr_string::size_type condition_end = expression.find('}');
+	if (condition_end == xr_string::npos)
+	{
+		Msg("! level_changers.ltx: missing '}' in closed expression in [%s]: %s", section, value);
+		return false;
+	}
+
+	xr_string condition = expression.substr(1, condition_end - 1);
+	trim_level_changer_string(condition);
+
+	if (condition.empty() || (condition[0] != '+' && condition[0] != '-'))
+	{
+		Msg("! level_changers.ltx: invalid info condition in [%s]: %s", section, value);
+		return false;
+	}
+
+	const bool must_have_info = condition[0] == '+';
+	condition.erase(condition.begin());
+	trim_level_changer_string(condition);
+
+	if (condition.empty())
+	{
+		Msg("! level_changers.ltx: empty infoportion in [%s]: %s", section, value);
+		return false;
+	}
+
+	xr_string results = expression.substr(condition_end + 1);
+	trim_level_changer_string(results);
+	xr_string::size_type comma = results.find(',');
+	if (comma == xr_string::npos)
+	{
+		Msg("! level_changers.ltx: missing ',' in closed expression in [%s]: %s", section, value);
+		return false;
+	}
+
+	xr_string true_value = results.substr(0, comma);
+	xr_string false_value = results.substr(comma + 1);
+	trim_level_changer_string(true_value);
+	trim_level_changer_string(false_value);
+
+	bool when_true = false;
+	bool when_false = false;
+	if (!parse_level_changer_bool(true_value.c_str(), when_true) ||
+		!parse_level_changer_bool(false_value.c_str(), when_false))
+	{
+		Msg("! level_changers.ltx: invalid boolean result in [%s]: %s", section, value);
+		return false;
+	}
+
+	CActor* actor = Actor();
+	const bool has_info = actor && actor->HasInfo(shared_str(condition.c_str()));
+	const bool condition_result = must_have_info ? has_info : !has_info;
+	return condition_result ? when_true : when_false;
+}
+
+static LPCSTR level_changer_tip(const CLevelChanger* changer, bool closed)
+{
+	CInifile* ini = level_changers_ini();
+	LPCSTR section = level_changer_config_section(changer);
+
+	if (ini && section)
+	{
+		LPCSTR key = closed ? "tip_closed" : "tip_opened";
+		if (ini->line_exist(section, key))
+			return ini->r_string(section, key);
+	}
+
+	return closed ? "st_level_changer_disabled" : "level_changer_invitation";
+}
 
 CLevelChanger::~CLevelChanger	()
 {
@@ -47,6 +263,9 @@ void CLevelChanger::net_Destroy	()
 BOOL CLevelChanger::net_Spawn	(CSE_Abstract* DC) 
 {
 	m_entrance_time				= 0;
+	m_bLevelChangerEnabled		= true;
+	m_levelChangerInvitation	= "";
+	m_levelChangerDisabledMessage = "st_level_changer_disabled";
 	CCF_Shape *l_pShape			= xr_new<CCF_Shape>(this);
 	collidable.model			= l_pShape;
 	
@@ -104,14 +323,31 @@ void CLevelChanger::shedule_Update(u32 dt)
 
 	update_actor_invitation		();
 }
-#include "patrol_path.h"
-#include "patrol_path_storage.h"
 void CLevelChanger::feel_touch_new	(CObject *tpObject)
 {
 	CActor*			l_tpActor = smart_cast<CActor*>(tpObject);
 	VERIFY			(l_tpActor);
 	if (!l_tpActor->g_Alive())
 		return;
+
+	CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(HUD().GetUI()->UIGame());
+
+	if (level_changer_closed(this))
+	{
+		Fvector reject_pos, reject_angles;
+		bool has_reject_pos = get_reject_pos(reject_pos, reject_angles);
+
+		if (pGameSP)
+			pGameSP->LevelChangerDisabled(
+				level_changer_tip(this, true),
+				reject_pos,
+				reject_angles,
+				has_reject_pos
+			);
+
+		m_entrance_time = Device.fTimeGlobal;
+		return;
+	}
 
 	if (m_bSilentMode) {
 		NET_Packet	p;
@@ -123,11 +359,11 @@ void CLevelChanger::feel_touch_new	(CObject *tpObject)
 		Level().Send(p,net_flags(TRUE));
 		return;
 	}
+
 	Fvector			p,r;
-	bool			b = get_reject_pos(p,r);
-	CUIGameSP		*pGameSP = smart_cast<CUIGameSP*>(HUD().GetUI()->UIGame());
+	bool				b = get_reject_pos(p,r);
 	if (pGameSP)
-        pGameSP->ChangeLevel	(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b);
+		pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b,level_changer_tip(this, false));
 
 	m_entrance_time	= Device.fTimeGlobal;
 }
@@ -176,9 +412,28 @@ void CLevelChanger::update_actor_invitation()
 
 		if(m_entrance_time+5.0f < Device.fTimeGlobal){
 			CUIGameSP* pGameSP = smart_cast<CUIGameSP*>(HUD().GetUI()->UIGame());
-			Fvector p,r;
-			bool b = get_reject_pos(p,r);
-			if(pGameSP)pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b);
+
+			if (level_changer_closed(this))
+			{
+				Fvector reject_pos, reject_angles;
+				bool has_reject_pos = get_reject_pos(reject_pos, reject_angles);
+
+				if (pGameSP)
+					pGameSP->LevelChangerDisabled(
+						level_changer_tip(this, true),
+						reject_pos,
+						reject_angles,
+						has_reject_pos
+					);
+
+				m_entrance_time = Device.fTimeGlobal;
+				continue;
+			}
+
+			Fvector			p,r;
+			bool				b = get_reject_pos(p,r);
+			if(pGameSP)
+				pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b,level_changer_tip(this, false));
 			m_entrance_time		= Device.fTimeGlobal;
 		}
 	}
