@@ -42,6 +42,40 @@ xr_token							vid_bpp_token							[ ]={
 	{ "32",							32											},
 	{ 0,							0											}
 };
+
+static xr_token display_mode_token[] = {
+	{ "ui_mm_windowed", 0 },
+	{ "ui_mm_borderless", 1 },
+	{ "ui_mm_fullscreen", 2 },
+	{ 0, 0 }
+};
+
+class CCC_DisplayMode : public CCC_Token
+{
+	typedef CCC_Token inherited;
+	u32 m_value;
+
+	void sync_flags()
+	{
+		psDeviceFlags.set(rsFullscreen, m_value == 2);
+		psDeviceFlags.set(rsBorderless, m_value == 1);
+	}
+
+public:
+	CCC_DisplayMode(LPCSTR N) : inherited(N, &m_value, display_mode_token), m_value(2) {}
+
+	virtual void Execute(LPCSTR args)
+	{
+		inherited::Execute(args);
+		sync_flags();
+	}
+
+	virtual void Status(TStatus& S)
+	{
+		m_value = psDeviceFlags.is(rsFullscreen) ? 2 : (psDeviceFlags.is(rsBorderless) ? 1 : 0);
+		inherited::Status(S);
+	}
+};
 //-----------------------------------------------------------------------
 class CCC_Quit : public IConsole_Command
 {
@@ -555,6 +589,7 @@ void CCC_Register()
 	CMD3(CCC_Mask,		"rs_v_sync",			&psDeviceFlags,		rsVSync				);
 //	CMD3(CCC_Mask,		"rs_disable_objects_as_crows",&psDeviceFlags,	rsDisableObjectsAsCrows	);
 	CMD3(CCC_Mask,		"rs_fullscreen",		&psDeviceFlags,		rsFullscreen			);
+	CMD1(CCC_DisplayMode,	"rs_display_mode"		);
 	CMD3(CCC_Mask,		"rs_borderless",			&psDeviceFlags,		rsBorderless				);
 	CMD3(CCC_Mask,		"rs_refresh_60hz",		&psDeviceFlags,		rsRefresh60hz			);
 	CMD3(CCC_Mask,		"rs_stats",				&psDeviceFlags,		rsStatistic				);
