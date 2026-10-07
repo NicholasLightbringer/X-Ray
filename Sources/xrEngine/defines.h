@@ -16,6 +16,7 @@ ENGINE_API extern	int		psTextureLOD		;
 // psDeviceFlags
 enum {
 	rsFullscreen					= (1ul<<0ul),
+	rsBorderless				= (1ul<<20ul),
 	rsClearBB						= (1ul<<1ul),
 	rsVSync							= (1ul<<2ul),
 	rsWireframe						= (1ul<<3ul),

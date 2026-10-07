@@ -27,6 +27,7 @@ void on_error_dialog			(bool before)
 CInput::CInput						( BOOL bExclusive, int deviceForInit)
 {
 	g_exclusive							= !!bExclusive;
+	m_exclusive_mode				= !!bExclusive && !psDeviceFlags.is(rsBorderless);
 
 	Log("Starting INPUT device...");
 
@@ -52,14 +53,14 @@ CInput::CInput						( BOOL bExclusive, int deviceForInit)
 	if (deviceForInit & keyboard_device_key)
 		CHK_DX(CreateInputDevice(
 		&pKeyboard, 	GUID_SysKeyboard, 	&c_dfDIKeyboard,
-		((bExclusive)?DISCL_EXCLUSIVE:DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND,
+		((m_exclusive_mode)?DISCL_EXCLUSIVE:DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND,
 		KEYBOARDBUFFERSIZE ));
 
 	// MOUSE
 	if (deviceForInit & mouse_device_key)
 		CHK_DX(CreateInputDevice(
 		&pMouse,		GUID_SysMouse,		&c_dfDIMouse2,
-		((bExclusive)?DISCL_EXCLUSIVE:DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND | DISCL_NOWINKEY,
+		((m_exclusive_mode)?DISCL_EXCLUSIVE:DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND | DISCL_NOWINKEY,
 		MOUSEBUFFERSIZE ));
 
 	Debug.set_on_dialog				(&on_error_dialog);
@@ -367,6 +368,13 @@ void CInput::OnAppActivate		(void)
 	if (CurrentIR())
 		CurrentIR()->IR_OnActivate();
 
+	bool desired_exclusive = g_exclusive && (!psDeviceFlags.is(rsBorderless) || psDeviceFlags.is(rsFullscreen));
+	if (desired_exclusive != m_exclusive_mode)
+	{
+		SetAllAcquire(false);
+		exclusive_mode(desired_exclusive);
+	}
+
 	SetAllAcquire	( true );
 	ZeroMemory		( mouseState,	sizeof(mouseState) );
 	ZeroMemory		( KBState,		sizeof(KBState) );
@@ -390,6 +398,15 @@ void CInput::OnAppDeactivate	(void)
 
 void CInput::OnFrame			(void)
 {
+	bool desired_exclusive = g_exclusive && (!psDeviceFlags.is(rsBorderless) || psDeviceFlags.is(rsFullscreen));
+	if (desired_exclusive != m_exclusive_mode)
+	{
+		SetAllAcquire(false);
+		exclusive_mode(desired_exclusive);
+		if (Device.b_is_Active)
+			SetAllAcquire(true);
+	}
+
 	Device.Statistic->Input.Begin			();
 	dwCurTime		= Device.TimerAsync_MMT	();
 	if (pKeyboard)	KeyUpdate				();
@@ -407,11 +424,15 @@ IInputReceiver*	 CInput::CurrentIR()
 
 void CInput::exclusive_mode			(const bool &exclusive)
 {
+	m_exclusive_mode = exclusive;
+
+	if (pKeyboard)
 	pKeyboard->SetCooperativeLevel	(
 		Device.m_hWnd, 
 		(exclusive ? DISCL_EXCLUSIVE : DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND
 	);
 
+	if (pMouse)
 	pMouse->SetCooperativeLevel		(
 		Device.m_hWnd, 
 		(exclusive ? DISCL_EXCLUSIVE : DISCL_NONEXCLUSIVE) | DISCL_FOREGROUND | DISCL_NOWINKEY

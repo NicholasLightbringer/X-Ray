@@ -44,6 +44,7 @@ private:
 	LPDIRECTINPUT8				pDI;			// The DInput object
 	LPDIRECTINPUTDEVICE8		pMouse;			// The DIDevice7 interface
 	LPDIRECTINPUTDEVICE8		pKeyboard;		// The DIDevice7 interface
+	bool						m_exclusive_mode;
 	//----------------------
 	u32							timeStamp	[COUNT_MOUSE_AXIS];
 	u32							timeSave	[COUNT_MOUSE_AXIS];

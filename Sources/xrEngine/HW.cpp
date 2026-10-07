@@ -154,8 +154,18 @@ void	CHW::selectResolution	(u32 &dwWidth, u32 &dwHeight, BOOL bWindowed)
 #else
 	if(bWindowed)
 	{
-		dwWidth		= psCurrentVidMode[0];
-		dwHeight	= psCurrentVidMode[1];
+		if (psDeviceFlags.is(rsBorderless))
+		{
+			RECT DesktopRect;
+			GetClientRect(GetDesktopWindow(), &DesktopRect);
+			dwWidth		= DesktopRect.right - DesktopRect.left;
+			dwHeight	= DesktopRect.bottom - DesktopRect.top;
+		}
+		else
+		{
+			dwWidth		= psCurrentVidMode[0];
+			dwHeight	= psCurrentVidMode[1];
+		}
 	}else //check
 	{
 #ifndef _EDITOR
@@ -433,6 +443,18 @@ void	CHW::updateWindowProps	(HWND m_hWnd)
 	u32		dwWindowStyle			= 0;
 	// Set window properties depending on what mode were in.
 	if (bWindowed)		{
+		if (psDeviceFlags.is(rsBorderless))
+		{
+			RECT DesktopRect;
+			GetClientRect(GetDesktopWindow(), &DesktopRect);
+			SetWindowLong(m_hWnd, GWL_STYLE, dwWindowStyle=(WS_POPUP|WS_VISIBLE));
+			SetWindowPos(m_hWnd, HWND_TOP, 0, 0,
+				DesktopRect.right - DesktopRect.left,
+				DesktopRect.bottom - DesktopRect.top,
+				SWP_SHOWWINDOW|SWP_NOCOPYBITS|SWP_FRAMECHANGED);
+		}
+		else
+		{
 		SetWindowLong	( m_hWnd, GWL_STYLE, dwWindowStyle=(WS_BORDER|WS_DLGFRAME|WS_VISIBLE|WS_SYSMENU|WS_MINIMIZEBOX ) );
 		// When moving from fullscreen to windowed mode, it is important to
 		// adjust the window size after recreating the device rather than
@@ -478,6 +500,7 @@ void	CHW::updateWindowProps	(HWND m_hWnd)
 									( m_rcWindowBounds.right - m_rcWindowBounds.left ),
 									( m_rcWindowBounds.bottom - m_rcWindowBounds.top ),
 									SWP_SHOWWINDOW|SWP_NOCOPYBITS|SWP_DRAWFRAME );
+		}
 	}
 	else
 	{
