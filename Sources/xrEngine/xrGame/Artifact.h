@@ -72,6 +72,10 @@ public:
 	float 							m_fSatietyRestoreSpeed;
 	float							m_fPowerRestoreSpeed;
 	float							m_fBleedingRestoreSpeed;
+	float m_fAdditionalWeight;
+	float m_fSprintSpeed;
+	float m_fJumpHeight;
+	float m_fPsyHealthRestoreSpeed;
 	CHitImmunity 					m_ArtefactHitImmunities;
 
 protected:

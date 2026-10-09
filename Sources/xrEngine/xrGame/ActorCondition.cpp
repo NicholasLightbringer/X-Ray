@@ -265,11 +265,12 @@ bool CActorCondition::IsCantWalkWeight()
 {
 	if(IsGameTypeSingle() && !GodMode())
 	{
-		float max_w				= m_MaxWalkWeight;
+		float max_w = m_MaxWalkWeight;
 
-		CCustomOutfit* outfit	= m_object->GetOutfit();
-		if(outfit)
+		CCustomOutfit* outfit = m_object->GetOutfit();
+		if (outfit)
 			max_w += outfit->m_additional_weight;
+			max_w += object().ArtefactAdditionalWeight();
 
 		if( object().inventory().TotalWeight() > max_w )
 		{

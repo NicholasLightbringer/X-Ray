@@ -85,6 +85,16 @@ CInventory::CInventory()
 	m_iLoadActiveSlotFrame						= u32(-1);
 }
 
+float CInventory::GetMaxWeight() const
+{
+	float result = m_fMaxWeight;
+
+	CActor* actor = smart_cast<CActor*>(m_pOwner);
+	if (actor)
+		result += actor->ArtefactAdditionalWeight();
+
+	return result;
+}
 
 CInventory::~CInventory() 
 {

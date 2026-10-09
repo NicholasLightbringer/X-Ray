@@ -1467,6 +1467,20 @@ void CActor::OnItemBelt		(CInventoryItem *inventory_item, EItemPlace previous_pl
 		MoveArtefactBelt(artefact, true);
 }
 
+float CActor::ArtefactAdditionalWeight() const
+{
+	float result = 0.0f;
+
+	for (TIItemContainer::const_iterator it = inventory().m_belt.begin();
+		inventory().m_belt.end() != it; ++it)
+	{
+		CArtefact* artefact = smart_cast<CArtefact*>(*it);
+		if (artefact)
+			result += artefact->m_fAdditionalWeight;
+	}
+
+	return result;
+}
 
 void CActor::MoveArtefactBelt(const CArtefact* artefact, bool on_belt)
 {
@@ -1516,7 +1530,8 @@ void CActor::UpdateArtefactsOnBelt()
 			conditions().ChangeBleeding			(artefact->m_fBleedingRestoreSpeed*f_update_time);
 			conditions().ChangeHealth			(artefact->m_fHealthRestoreSpeed*f_update_time);
 			conditions().ChangePower			(artefact->m_fPowerRestoreSpeed*f_update_time);
-//			conditions().ChangeSatiety			(artefact->m_fSatietyRestoreSpeed*f_update_time);
+			conditions().ChangePsyHealth(artefact->m_fPsyHealthRestoreSpeed * f_update_time);
+			conditions().ChangeSatiety			(artefact->m_fSatietyRestoreSpeed*f_update_time);
 			conditions().ChangeRadiation		(artefact->m_fRadiationRestoreSpeed*f_update_time);
 		}
 	}

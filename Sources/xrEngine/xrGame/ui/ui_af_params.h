@@ -21,6 +21,11 @@ protected:
 		_item_satiety_restore_speed,
 		_item_power_restore_speed,
 		_item_bleeding_restore_speed,
+		_item_psy_health_restore_speed,
+		_item_additional_weight,
+		_item_sprint_speed,
+		_item_jump_height,
+
 
 		_max_item_index1,
 

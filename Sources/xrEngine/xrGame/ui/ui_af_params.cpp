@@ -24,6 +24,11 @@ LPCSTR af_item_sect_names[] = {
 	"satiety_restore_speed",
 	"power_restore_speed",
 	"bleeding_restore_speed",
+	"psy_health_restore_speed",
+	"additional_weight",
+	"sprint_speed",
+	"jump_height",
+
 	
 	"burn_immunity",
 	"strike_immunity",
@@ -42,6 +47,11 @@ LPCSTR af_item_param_names[] = {
 	"ui_inv_satiety",
 	"ui_inv_power",
 	"ui_inv_bleeding",
+	"ui_inv_psy_health",
+	"ui_inv_additional_weight",
+	"ui_inv_sprint_speed",
+	"ui_inv_jump_height",
+
 
 	"ui_inv_outfit_burn_protection",			// "(burn_imm)",
 	"ui_inv_outfit_strike_protection",			// "(strike_imm)",
@@ -60,6 +70,7 @@ LPCSTR af_actor_param_names[]={
 	"satiety_v",
 	"satiety_power_v",
 	"wound_incarnation_v",
+	"psy_health_v",
 };
 void CUIArtefactParams::InitFromXml(CUIXml& xml_doc)
 {
@@ -71,10 +82,14 @@ void CUIArtefactParams::InitFromXml(CUIXml& xml_doc)
 
 	for(u32 i=_item_start; i<_max_item_index; ++i)
 	{
-		m_info_items[i]			= xr_new<CUIStatic>();
+		strconcat(sizeof(_buff), _buff, _base, ":static_", af_item_sect_names[i]);
+		
+			if (!xml_doc.NavigateToNode(_buff, 0))
+			 continue;
+		
+			m_info_items[i]			= xr_new<CUIStatic>();
 		CUIStatic* _s			= m_info_items[i];
 		_s->SetAutoDelete		(false);
-		strconcat				(sizeof(_buff),_buff, _base, ":static_", af_item_sect_names[i]);
 		CUIXmlInit::InitStatic	(xml_doc, _buff,	0, _s);
 	}
 }
@@ -95,10 +110,16 @@ void CUIArtefactParams::SetInfo(const shared_str& af_section)
 		CUIStatic* _s			= m_info_items[i];
 
 		float					_val;
-		if(i<_max_item_index1)
+		if (i == _item_additional_weight || i == _item_sprint_speed || i == _item_jump_height)
+			{
+			_val = READ_IF_EXISTS(pSettings, r_float, af_section, af_item_sect_names[i], 0.0f);
+			if (fis_zero(_val))
+				continue;
+			}
+		else if (i < _max_item_index1)
 		{
 			float _actor_val	= pSettings->r_float	("actor_condition", af_actor_param_names[i]);
-			_val				= pSettings->r_float	(af_section, af_item_sect_names[i]);
+			_val = READ_IF_EXISTS(pSettings, r_float, af_section, af_item_sect_names[i], 0.0f);
 
 			if					(fis_zero(_val))				continue;
 			
@@ -113,6 +134,10 @@ void CUIArtefactParams::SetInfo(const shared_str& af_section)
 
 		}
 		LPCSTR _sn = "%";
+		if (i == _item_additional_weight)
+			 _sn = " kg";
+		else if (i == _item_sprint_speed || i == _item_jump_height)
+			 _sn = "";
 		if(i==_item_radiation_restore_speed || i==_item_power_restore_speed)
 		{
 			_val				/= 100.0f;
@@ -128,7 +153,12 @@ void CUIArtefactParams::SetInfo(const shared_str& af_section)
 			_color = (_val>0)?"%c[red]":"%c[green]";
 
 
-		sprintf_s					(	_buff, "%s %s %+.0f %s", 
+		if (i == _item_additional_weight)
+			sprintf_s(_buff, "%s %s %+.1f%s", CStringTable().translate(af_item_param_names[i]).c_str(), _color, _val, _sn);
+		else if (i == _item_sprint_speed || i == _item_jump_height)
+			sprintf_s(_buff, "%s %s %+.2f%s", CStringTable().translate(af_item_param_names[i]).c_str(), _color, _val, _sn);
+		else
+			sprintf_s(_buff, "%s %s %+.0f %s",
 									CStringTable().translate(af_item_param_names[i]).c_str(), 
 									_color, 
 									_val, 

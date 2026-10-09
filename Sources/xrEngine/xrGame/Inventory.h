@@ -114,7 +114,7 @@ public:
 
 	float				GetTakeDist					() const				{return m_fTakeDist;}
 	
-	float				GetMaxWeight				() const				{return m_fMaxWeight;}
+	float GetMaxWeight() const;
 	void				SetMaxWeight				(float weight)			{m_fMaxWeight = weight;}
 
 	u32					BeltWidth					() const;
