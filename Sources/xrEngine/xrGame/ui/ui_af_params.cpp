@@ -123,7 +123,10 @@ void CUIArtefactParams::SetInfo(const shared_str& af_section)
 
 			if					(fis_zero(_val))				continue;
 			
-			_val				= (_val/_actor_val)*100.0f;
+			if (i == _item_satiety_restore_speed)
+				_val *= 60.0f * 100.0f;
+			else
+				_val = (_val / _actor_val) * 100.0f;
 		}else
 		{
 			shared_str _sect	= pSettings->r_string(af_section, "hit_absorbation_sect");
@@ -134,10 +137,23 @@ void CUIArtefactParams::SetInfo(const shared_str& af_section)
 
 		}
 		LPCSTR _sn = "%";
-		if (i == _item_additional_weight)
-			 _sn = " kg";
+		shared_str localized_unit;
+
+		if (i == _item_satiety_restore_speed)
+		{
+			localized_unit = CStringTable().translate(
+				"ui_inv_unit_satiety_per_minute");
+			_sn = localized_unit.c_str();
+		}
+		else if (i == _item_additional_weight)
+		{
+			localized_unit = CStringTable().translate("ui_inv_unit_kg");
+			_sn = localized_unit.c_str();
+		}
 		else if (i == _item_sprint_speed || i == _item_jump_height)
-			 _sn = "";
+		{
+			_sn = "";
+		}
 		if(i==_item_radiation_restore_speed || i==_item_power_restore_speed)
 		{
 			_val				/= 100.0f;
@@ -157,6 +173,8 @@ void CUIArtefactParams::SetInfo(const shared_str& af_section)
 			sprintf_s(_buff, "%s %s %+.1f%s", CStringTable().translate(af_item_param_names[i]).c_str(), _color, _val, _sn);
 		else if (i == _item_sprint_speed || i == _item_jump_height)
 			sprintf_s(_buff, "%s %s %+.2f%s", CStringTable().translate(af_item_param_names[i]).c_str(), _color, _val, _sn);
+		else if (i == _item_satiety_restore_speed)
+			sprintf_s(_buff, "%s %s %+.1f %s", CStringTable().translate(af_item_param_names[i]).c_str(), _color, _val, _sn);
 		else
 			sprintf_s(_buff, "%s %s %+.0f %s",
 									CStringTable().translate(af_item_param_names[i]).c_str(), 
