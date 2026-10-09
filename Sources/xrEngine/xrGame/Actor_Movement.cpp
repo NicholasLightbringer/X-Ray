@@ -300,7 +300,18 @@ void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector &vControlAccel, float &Ju
 
 				if (mstate_real&mcCrouch)	scale *= m_fCrouchFactor;
 				if (mstate_real&mcClimb)	scale *= m_fClimbFactor;
-				if (mstate_real&mcSprint)	scale *= m_fSprintFactor;
+				if (mstate_real & mcSprint)
+					{
+					float sprint_factor = m_fSprintFactor;
+					for (TIItemContainer::const_iterator it = inventory().m_belt.begin();
+						inventory().m_belt.end() != it; ++it)
+						{
+						CArtefact * artefact = smart_cast<CArtefact*>(*it);
+						if (artefact)
+							sprint_factor += artefact->m_fSprintSpeed;
+						}
+					scale *= _max(0.0f, sprint_factor);
+					}
 
 				if (mstate_real&(mcLStrafe|mcRStrafe) && !(mstate_real&mcCrouch))
 				{
