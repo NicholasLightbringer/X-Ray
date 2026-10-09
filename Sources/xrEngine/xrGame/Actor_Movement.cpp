@@ -71,26 +71,6 @@ void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 			}
 		}
 		m_bJumpKeyPressed	=	TRUE;
-		// Sum the jump-height bonuses from equipped artefacts.
-		float artefact_jump_height = 0.0f;
-		for (TIItemContainer::const_iterator it = inventory().m_belt.begin();
-			inventory().m_belt.end() != it; ++it)
-			{
-			CArtefact * artefact = smart_cast<CArtefact*>(*it);
-			if (artefact)
-				artefact_jump_height += artefact->m_fJumpHeight;
-			}
-		
-			// jump_height is an addition in metres, so convert target height to launch velocity.
-			float jump_velocity = m_fJumpSpeed;
-		if (ph_world && ph_world->Gravity() > 0.0f)
-			{
-			const float gravity = ph_world->Gravity();
-			const float base_height = (m_fJumpSpeed * m_fJumpSpeed) / (2.0f * gravity);
-			const float target_height = _max(0.0f, base_height + artefact_jump_height);
-			jump_velocity = _sqrt(2.0f * gravity * target_height);
-			}
-		character_physics_support()->movement()->SetJumpUpVelocity(jump_velocity);
 		m_fJumpTime			=	s_fJumpTime;
 		mstate_real			&=~	(mcFall|mcJump);
 	}
@@ -163,6 +143,28 @@ void CActor::g_cl_ValidateMState(float dt, u32 mstate_wf)
 
 void CActor::g_cl_CheckControls(u32 mstate_wf, Fvector &vControlAccel, float &Jump, float dt)
 {
+
+	// Sum the jump-height bonuses from equipped artefacts.
+	float artefact_jump_height = 0.0f;
+	for (TIItemContainer::const_iterator it = inventory().m_belt.begin();
+		inventory().m_belt.end() != it; ++it)
+	{
+		CArtefact* artefact = smart_cast<CArtefact*>(*it);
+		if (artefact)
+			artefact_jump_height += artefact->m_fJumpHeight;
+	}
+
+	// jump_height is an addition in metres, so convert target height to launch velocity.
+	float jump_velocity = m_fJumpSpeed;
+	if (ph_world && ph_world->Gravity() > 0.0f)
+	{
+		const float gravity = ph_world->Gravity();
+		const float base_height = (m_fJumpSpeed * m_fJumpSpeed) / (2.0f * gravity);
+		const float target_height = _max(0.0f, base_height + artefact_jump_height);
+		jump_velocity = _sqrt(2.0f * gravity * target_height);
+	}
+	character_physics_support()->movement()->SetJumpUpVelocity(jump_velocity);
+
 	mstate_old = mstate_real;
 	vControlAccel.set	(0,0,0);
 

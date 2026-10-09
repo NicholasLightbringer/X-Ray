@@ -806,6 +806,35 @@ void CActor::g_Physics(Fvector& _accel, float jump, float dt)
 	if(g_Alive())
 	{
 	if(mstate_real&mcClimb&&!cameras[eacFirstEye]->bClampYaw)accel.set(0.f,0.f,0.f);
+	// Recalculate artefact jump bonus immediately before physics processes the jump.
+	if (!fis_zero(jump))
+	{
+		float artefact_jump_height = 0.0f;
+
+		for (TIItemContainer::const_iterator it = inventory().m_belt.begin();
+			inventory().m_belt.end() != it; ++it)
+		{
+			CArtefact* artefact = smart_cast<CArtefact*>(*it);
+			if (artefact)
+				artefact_jump_height += artefact->m_fJumpHeight;
+		}
+
+		float jump_velocity = m_fJumpSpeed;
+
+		if (ph_world && ph_world->Gravity() > 0.0f)
+		{
+			const float gravity = ph_world->Gravity();
+			const float base_height =
+				(m_fJumpSpeed * m_fJumpSpeed) / (2.0f * gravity);
+
+			const float target_height =
+				_max(0.0f, base_height + artefact_jump_height);
+
+			jump_velocity = _sqrt(2.0f * gravity * target_height);
+		}
+
+		character_physics_support()->movement()->SetJumpUpVelocity(jump_velocity);
+	}
 	character_physics_support()->movement()->Calculate			(accel,cameras[cam_active]->vDirection,0,jump,dt,false);
 	bool new_border_state=character_physics_support()->movement()->isOutBorder();
 	if(m_bOutBorder!=new_border_state && Level().CurrentControlEntity() == this)
