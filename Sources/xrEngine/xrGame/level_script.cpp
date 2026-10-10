@@ -29,6 +29,9 @@
 #include "map_location.h"
 #include "phworld.h"
 
+extern void set_game_saving_allowed(bool allowed);
+extern void save_game_from_script(LPCSTR name);
+
 using namespace luabind;
 
 LPCSTR command_line	()
@@ -547,6 +550,9 @@ void CLevel::script_register(lua_State *L)
 		def("set_weather",						set_weather),
 		def("set_weather_fx",					set_weather_fx),
 		def("is_wfx_playing",					is_wfx_playing),
+
+		def("set_saving_allowed", &set_game_saving_allowed),
+		def("script_save_game", &save_game_from_script),
 
 		def("environment",						environment),
 		

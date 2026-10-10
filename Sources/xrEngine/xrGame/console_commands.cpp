@@ -54,6 +54,38 @@
 
 string_path		g_last_saved_game;
 
+static bool g_bSavingAllowed = true;
+static bool g_bScriptSaveInProgress = false;
+
+bool game_saving_allowed()
+{
+	return g_bSavingAllowed;
+}
+
+void set_game_saving_allowed(bool allowed)
+{
+	g_bSavingAllowed = allowed;
+}
+
+void save_game_from_script(LPCSTR name)
+{
+	bool old_state = g_bScriptSaveInProgress;
+	g_bScriptSaveInProgress = true;
+
+	if (!name || !*name)
+	{
+		Console->Execute("save");
+	}
+	else
+	{
+		string_path command;
+		strconcat(sizeof(command), command, "save ", name);
+		Console->Execute(command);
+	}
+
+	g_bScriptSaveInProgress = old_state;
+}
+
 extern void show_smart_cast_stats		();
 extern void clear_smart_cast_stats		();
 extern void release_smart_cast_stats	();
@@ -402,6 +434,12 @@ class CCC_ALifeSave : public IConsole_Command {
 public:
 	CCC_ALifeSave(LPCSTR N) : IConsole_Command(N)  { bEmptyArgsHandled = true; };
 	virtual void Execute(LPCSTR args) {
+
+		if (!g_bSavingAllowed && !g_bScriptSaveInProgress)
+		{
+			Msg("! Saving is disabled");
+			return;
+		}
 		
 #if 0
 		if (!Level().autosave_manager().ready_for_autosave()) {
