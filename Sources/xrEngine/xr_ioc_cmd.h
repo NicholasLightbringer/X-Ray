@@ -33,6 +33,11 @@ public		:
 	};
 
 	LPCSTR			Name()			{ return cName;	}
+	void SetEnabled(bool enabled)
+	{
+		bEnabled = enabled;
+	}
+
 	void			InvalidSyntax() {
 		TInfo I; Info(I);
 		Msg("~ Invalid syntax in call to '%s'",cName);

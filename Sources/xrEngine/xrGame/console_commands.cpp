@@ -145,6 +145,56 @@ enum E_COMMON_FLAGS{
 
 CUIOptConCom g_OptConCom;
 
+static Flags32 g_debug_command_flags = { 0 };
+
+enum
+{
+	flDebugCommandsEnabled = 1 << 0
+};
+
+static void SetDebugCommandsEnabled(bool enabled)
+{
+	if (!Console)
+		return;
+
+	const LPCSTR commands[] =
+	{
+		"jump_to_level",
+		"g_god",
+		"g_unlimitedammo",
+		"run_script",
+		"run_string",
+		"time_factor"
+	};
+
+	for (u32 i = 0; i < _countof(commands); ++i)
+	{
+		CConsole::vecCMD_IT it =
+			Console->Commands.find(commands[i]);
+
+		if (it != Console->Commands.end())
+			it->second->SetEnabled(enabled);
+	}
+}
+
+class CCC_DebugCommands : public CCC_Mask
+{
+public:
+	CCC_DebugCommands(LPCSTR name, Flags32* value, u32 mask)
+		: CCC_Mask(name, value, mask)
+	{
+	}
+
+	virtual void Execute(LPCSTR args)
+	{
+		CCC_Mask::Execute(args);
+
+		SetDebugCommandsEnabled(
+			GetValue() != FALSE
+		);
+	}
+};
+
 #ifndef PURE_ALLOC
 #	ifndef USE_MEMORY_MONITOR
 #		define SEVERAL_ALLOCATORS
@@ -343,7 +393,6 @@ public:
 	}
 };
 
-#ifndef MASTER_GOLD
 class CCC_TimeFactor : public IConsole_Command {
 public:
 					CCC_TimeFactor	(LPCSTR N) : IConsole_Command(N) {}
@@ -354,7 +403,6 @@ public:
 		Device.time_factor	(time_factor);
 	}
 };
-#endif // MASTER_GOLD
 
 //-----------------------------------------------------------------------
 class CCC_DemoRecord : public IConsole_Command
@@ -665,7 +713,6 @@ public:
 };
 
 
-#ifndef MASTER_GOLD
 class CCC_Script : public IConsole_Command {
 public:
 	CCC_Script(LPCSTR N) : IConsole_Command(N)  { bEmptyArgsHandled = true; };
@@ -717,7 +764,6 @@ public:
 		}
 	}
 };
-#endif // MASTER_GOLD
 
 #ifdef DEBUG
 
@@ -1041,7 +1087,6 @@ struct CCC_ClearSmartCastStats : public IConsole_Command {
 };
 #endif
 
-#ifndef MASTER_GOLD
 #	include "game_graph.h"
 struct CCC_JumpToLevel : public IConsole_Command {
 	CCC_JumpToLevel(LPCSTR N) : IConsole_Command(N)  {};
@@ -1064,7 +1109,6 @@ struct CCC_JumpToLevel : public IConsole_Command {
 		Msg							("! There is no level \"%s\" in the game graph!",level);
 	}
 };
-#endif // MASTER_GOLD
 
 #include "GamePersistent.h"
 
@@ -1437,10 +1481,8 @@ void CCC_RegisterCommands()
 	CMD3(CCC_Mask,				"hud_crosshair_dist",	&psHUD_Flags,	HUD_CROSSHAIR_DIST);
 	CMD3(CCC_Mask, "hud_cursor_weapon", &psHUD_Flags, HUD_CURSOR_WEAPON);
 
-#ifdef DEBUG
 	CMD4(CCC_Float,				"hud_fov",				&psHUD_FOV,		0.1f,	1.0f);
 	CMD4(CCC_Float,				"fov",					&g_fov,			5.0f,	180.0f);
-#endif // DEBUG
 
 	// Demo
 	CMD1(CCC_DemoPlay,			"demo_play"				);
@@ -1540,14 +1582,12 @@ void CCC_RegisterCommands()
 #endif // DEBUG
 
 
-#ifndef MASTER_GOLD
 	CMD1(CCC_JumpToLevel,	"jump_to_level"		);
 	CMD3(CCC_Mask,			"g_god",			&psActorFlags,	AF_GODMODE	);
 	CMD3(CCC_Mask,			"g_unlimitedammo",	&psActorFlags,	AF_UNLIMITEDAMMO);
 	CMD1(CCC_Script,		"run_script");
 	CMD1(CCC_ScriptCommand,	"run_string");
 	CMD1(CCC_TimeFactor,	"time_factor");		
-#endif // MASTER_GOLD
 
 	CMD3(CCC_Mask,		"g_autopickup",			&psActorFlags,	AF_AUTOPICKUP);
 
@@ -1650,7 +1690,18 @@ void CCC_RegisterCommands()
 	CMD4(CCC_Integer,		"dbg_show_ani_info",	&g_ShowAnimationInfo,	0, 1)	;
 	CMD4(CCC_Integer,		"dbg_dump_physics_step", &g_bDebugDumpPhysicsStep, 0, 1);
 #endif
-	*g_last_saved_game	= 0;
+	*g_last_saved_game = 0;
 
-	register_mp_console_commands					();
+	register_mp_console_commands();
+
+	CMD3(
+		CCC_DebugCommands,
+		"debug_commands",
+		&g_debug_command_flags,
+		flDebugCommandsEnabled
+	);
+
+	SetDebugCommandsEnabled(
+		g_debug_command_flags.test(flDebugCommandsEnabled)
+	);
 }
