@@ -255,6 +255,11 @@ void game_GameState::SetGameTimeFactor	(ALife::_TIME_ID GameTime, const float fT
 	m_fTimeFactor				= fTimeFactor;
 }
 
+void game_GameState::SetGameTime(ALife::_TIME_ID GameTime)
+{
+	SetGameTimeFactor(GameTime, GetGameTimeFactor());
+}
+
 ALife::_TIME_ID game_GameState::GetEnvironmentGameTime()
 {
 	return			(m_qwEStartGameTime + iFloor(m_fETimeFactor*float(Level().timeServer_Async() - m_qwEStartProcessorTime)));

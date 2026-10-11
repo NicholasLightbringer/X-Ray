@@ -32,6 +32,8 @@ public:
 	virtual		float				GetGameTimeFactor		();
 	virtual		void				SetGameTimeFactor		(const float fTimeFactor);
 
+	virtual void SetGameTime(ALife::_TIME_ID GameTime);
+
 	virtual		ALife::_TIME_ID		GetEnvironmentGameTime	();
 	virtual		float				GetEnvironmentGameTimeFactor		();
 	virtual		void				SetEnvironmentGameTimeFactor		(const float fTimeFactor);

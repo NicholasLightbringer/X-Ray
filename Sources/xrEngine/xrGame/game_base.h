@@ -176,6 +176,7 @@ public:
 	virtual		float				GetGameTimeFactor		();	
 				void				SetGameTimeFactor		(ALife::_TIME_ID GameTime, const float fTimeFactor);
 	virtual		void				SetGameTimeFactor		(const float fTimeFactor);
+	virtual void SetGameTime(ALife::_TIME_ID GameTime);
 	
 
 	virtual		ALife::_TIME_ID		GetEnvironmentGameTime	();

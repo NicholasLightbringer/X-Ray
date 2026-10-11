@@ -188,6 +188,14 @@ void game_sv_Single::SetGameTimeFactor		(const float fTimeFactor)
 		return(inherited::SetGameTimeFactor(fTimeFactor));
 }
 
+void game_sv_Single::SetGameTime(ALife::_TIME_ID GameTime)
+{
+	if (ai().get_alife() && ai().alife().initialized())
+		alife().time_manager().set_game_time(GameTime);
+	else
+		inherited::SetGameTime(GameTime);
+}
+
 ALife::_TIME_ID game_sv_Single::GetEnvironmentGameTime		()
 {
 	return(inherited::GetGameTime());

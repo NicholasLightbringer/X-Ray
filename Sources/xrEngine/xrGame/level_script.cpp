@@ -153,6 +153,38 @@ u32 get_time_minutes()
 	return			mins;
 }
 
+void change_game_time(s32 days, s32 hours, s32 minutes)
+{
+	if (!OnServer() || !Level().Server || !Level().Server->game)
+		return;
+
+	game_sv_GameState* game = Level().Server->game;
+
+	const s64 delta_ms =
+		(((s64)days * 24 + (s64)hours) * 60 + (s64)minutes)
+		* 60 * 1000;
+
+	const s64 current_time = (s64)game->GetGameTime();
+
+	s64 new_time_value = current_time + delta_ms;
+
+	if (new_time_value < 0)
+		new_time_value = 0;
+
+	const ALife::_TIME_ID new_time =
+		(ALife::_TIME_ID)new_time_value;
+
+	// Изменяем игровое время.
+	game->SetGameTime(new_time);
+
+	// Синхронизируем время окружения: день, ночь и погоду.
+	game->SetEnvironmentGameTimeFactor(
+		new_time,
+		game->GetEnvironmentGameTimeFactor()
+	);
+
+}
+
 float cover_in_direction(u32 level_vertex_id, const Fvector &direction)
 {
 	float			y,p;
@@ -565,6 +597,8 @@ void CLevel::script_register(lua_State *L)
 		def("get_time_days",					get_time_days),
 		def("get_time_hours",					get_time_hours),
 		def("get_time_minutes",					get_time_minutes),
+
+		def("change_game_time", change_game_time),
 
 		def("cover_in_direction",				cover_in_direction),
 		def("vertex_in_direction",				vertex_in_direction),
