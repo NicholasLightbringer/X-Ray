@@ -1,6 +1,8 @@
-Форк рушія ТЧ 1.0007 від xrModder
+Project "Horizon86"
 
-Ключові відмінності на 10.10.2026:
+Форк 32-бітного рушія ТЧ 1.0007 від xrModder (https://github.com/xrModder/X-Ray)
+
+Ключові відмінності на 11.10.2026:
 - Додано підтримку віконного режиму без рамок (rs_borderless) + додано можливість перемикатися між 3 доступними режимами (rs_display_mode).
 - Інерція HUD у прицілюванні + можливість налаштування у конфігу конкретної зброї (hud_aim_inertion = true/false, hud_aim_inertion_strength = ...).
 - Розкачка HUD як у старих збірках ТЧ + можливість налаштування (нові параметри для [bobbing_effector] у effectors.ltx: hud_bobbing_speed, hud_bobbing_amplitude, hud_bobbing_vertical).
@@ -13,4 +15,6 @@
 - Назва грошової одиниці винесена у xml (st_money_name).
 - Можливість налаштовувати переходи на локації у спеціальному конфігу (level_changers.ltx). Вказується секція переходу що = назві його спавн-секції, а також параметри closed = {+cond} true, false (можна заборонити/дозволити перехід видачею інфопорції), tip_closed = ... (текст, що висвітиться на екрані переходу, якщо він закритий (за замовчуванням st_level_changer_disabled), tip_opened = ... (текст на екрані, якщо перехід відкритий (за замовч. дефолтний level_changer_invitation).
 - Можливість скриптово заборонити/дозволити збереження будь-яким доступним способом (level.set_saving_allowed). Додано disable_saving, enable_saving у xr_effects.script. Додано окрему функцію level.script_save_game для збереження з ігноруванням заборони сейвів (наприклад, для сюжетного автозбереження), scenario_autosave у xr_effects.script.
+- Можливість встановлювати або пропускати час, як це можна було у СоР: додано level.change_game_time. Додано set_game_time, forward_game_time у xr_effects.script.
 - Можливість скриптово змінювати ім'я та іконку актора (actor:set_actor_name, actor:set_actor_icon) + винесено в xr_effects: change_actor_name, change_actor_icon).
+- Можливість розблокувати в опціях гри debug-команди (jump_to_level, g_god, g_unlimitedammo, run_script, run_string, time_factor). Розблоковано команди fov, hud_fov.
