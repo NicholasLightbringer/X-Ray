@@ -18,25 +18,99 @@ void CStringTable::Destroy	()
 }
 
 
-void CStringTable::Init		()
+void CStringTable::Init()
 {
-	if(NULL != pData) return;
-    
-	pData				= xr_new<STRING_TABLE_DATA>();
-	
-	//имя языка, если не задано (NULL), то первый <text> в <string> в XML
-	pData->m_sLanguage	= pSettings->r_string("string_table", "language");
+	if (NULL != pData)
+		return;
 
-	LPCSTR S			= pSettings->r_string("string_table", "files");
-	if (S && S[0]) 
+	pData = xr_new<STRING_TABLE_DATA>();
+
+	// Выбираем язык из localization.ltx.
+	pData->m_sLanguage =
+		pSettings->r_string("string_table", "language");
+
+	// Формируем путь к каталогу и маску XML-файлов.
+	string_path mask;
+	string_path prefix;
+
+	strconcat(
+		sizeof(mask),
+		mask,
+		STRING_TABLE_PATH,
+		"\\",
+		*(pData->m_sLanguage),
+		"\\*.xml"
+	);
+
+	strconcat(
+		sizeof(prefix),
+		prefix,
+		STRING_TABLE_PATH,
+		"\\",
+		*(pData->m_sLanguage),
+		"\\"
+	);
+
+	// Имена файлов в файловой системе движка представлены
+	// в нижнем регистре.
+	xr_strlwr(mask);
+	xr_strlwr(prefix);
+
+	// Автоматически находим XML-файлы выбранного языка.
+	FS_FileSet files;
+
+	FS.file_list(
+		files,
+		"$game_config$",
+		FS_ListFiles,
+		mask
+	);
+
+	if (files.empty())
 	{
-		string128	xml_file;
-		int			count = _GetItemCount	(S);
-		for (int it=0; it<count; ++it)	
-		{
-			_GetItem	(S,it, xml_file);
-			Load		(xml_file);
-		}
+		Debug.fatal(
+			DEBUG_INFO,
+			"String table XML files not found for language %s",
+			*(pData->m_sLanguage)
+		);
+	}
+
+	Msg(
+		"! [string_table] Found %u XML files for language '%s'",
+		(u32)files.size(),
+		*(pData->m_sLanguage)
+	);
+
+	const u32 prefix_len = (u32)xr_strlen(prefix);
+
+	for (FS_FileSetIt it = files.begin(); it != files.end(); ++it)
+	{
+		LPCSTR full_name = it->name.c_str();
+
+		// Проверяем, что файл относится к выбранному языку.
+		if (strncmp(full_name, prefix, prefix_len) != 0)
+			continue;
+
+		// Получаем имя файла без пути.
+		LPCSTR base_name = full_name + prefix_len;
+
+		// Не загружаем файлы из вложенных каталогов.
+		if (strchr(base_name, '\\') || strchr(base_name, '/'))
+			continue;
+
+		// CStringTable::Load ожидает имя без расширения .xml.
+		string_path xml_file;
+		strcpy(xml_file, base_name);
+
+		LPSTR ext = strrchr(xml_file, '.');
+
+		if (!ext || stricmp(ext, ".xml") != 0)
+			continue;
+
+		*ext = 0;
+
+		// Используем оригинальный механизм загрузки переводов.
+		Load(xml_file);
 	}
 }
 
