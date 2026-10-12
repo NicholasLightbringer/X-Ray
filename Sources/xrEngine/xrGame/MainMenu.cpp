@@ -103,20 +103,36 @@ CMainMenu::~CMainMenu	()
 
 void CMainMenu::ReadTextureInfo()
 {
-	if (pSettings->section_exist("texture_desc"))
+	FS_FileSet files;
+
+	// »щем только XML в каталоге textures_descr.
+	int count = FS.file_list(
+		files,
+		"$game_config$",
+		FS_ListFiles,
+		"ui\\textures_descr\\*.xml"
+	);
+
+	Msg("! [texture_desc] Found %d descriptor files", count);
+
+	for (FS_FileSetIt it = files.begin(); it != files.end(); ++it)
 	{
-		xr_string itemsList; 
-		string256 single_item;
+		// ѕуть относительно $game_config$:
+		// ui\textures_descr\им€.xml
+		LPCSTR name = it->name.c_str();
 
-		itemsList = pSettings->r_string("texture_desc", "files");
-		int itemsCount	= _GetItemCount(itemsList.c_str());
-
-		for (int i = 0; i < itemsCount; i++)
+		// ”бираем префикс ui\, так как UI_PATH уже указывает на ui.
+		if (strncmp(name, "ui\\", 3) != 0)
 		{
-			_GetItem(itemsList.c_str(), i, single_item);
-			strcat(single_item,".xml");
-			CUITextureMaster::ParseShTexInfo(single_item);
-		}		
+			Msg("! [texture_desc] Unexpected path: %s", name);
+			continue;
+		}
+
+		name += 3;
+
+		Msg("! [texture_desc] Loading: %s", name);
+
+		CUITextureMaster::ParseShTexInfo(name);
 	}
 }
 
