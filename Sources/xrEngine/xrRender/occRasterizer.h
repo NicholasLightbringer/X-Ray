@@ -2,7 +2,7 @@
 //////////////////////////////////////////////////////////////////////
 #pragma once
 
-const int	occ_dim_0			= 64;
+const int	occ_dim_0			= 128;
 const int	occ_dim_1			= occ_dim_0/2;
 const int	occ_dim_2			= occ_dim_1/2;
 const int	occ_dim_3			= occ_dim_2/2;
