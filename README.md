@@ -18,3 +18,5 @@ Project "Horizon86"
 - Можливість встановлювати або пропускати час, як це можна було у СоР: додано level.change_game_time. Додано set_game_time, forward_game_time у xr_effects.script.
 - Можливість скриптово змінювати ім'я та іконку актора (actor:set_actor_name, actor:set_actor_icon) + винесено в xr_effects: change_actor_name, change_actor_icon).
 - Можливість розблокувати в опціях гри debug-команди (jump_to_level, g_god, g_unlimitedammo, run_script, run_string, time_factor). Розблоковано команди fov, hud_fov.
+- Автоматичне зчитування дескрипторів текстур з папки ui/textures_descr і xml-файлів локалізації з папки text/мова без потреби прописувати у system.ltx/localization.ltx (як у CS/CoP).
+- Виправлення багу обрізання статичної геометрії великих локацій (можливо).
