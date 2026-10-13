@@ -27,6 +27,7 @@ public:
 					CPPEffectorControllerAura	(const SPPInfo &ppi, u32 time_to_fade, const ref_sound &snd_left, const ref_sound &snd_right);
 	virtual BOOL	update						();
 	void			switch_off					();
+	virtual ~CPPEffectorControllerAura();
 };
 
 class CControllerAura : public CPPEffectorCustomController<CPPEffectorControllerAura>{
@@ -35,6 +36,8 @@ class CControllerAura : public CPPEffectorCustomController<CPPEffectorController
 	CController			*m_object;
 	u32					m_time_last_update;
 
+	// Tracks effectors after m_effector is cleared for fade-out.
+	xr_vector<EEffectorPPType> m_effector_types;
 	SAuraSound			aura_sound;
 
 	float				aura_radius;
@@ -63,8 +66,10 @@ class CControllerAura : public CPPEffectorCustomController<CPPEffectorController
 
 public:
 					CControllerAura			(CController *monster) : m_object(monster){}
+	virtual ~CControllerAura();
 	virtual void	load					(LPCSTR section);
 
+			void	clear_effectors			();
 			void	on_death				();
 			void	update_schedule			();
 			void	update_frame			();

@@ -21,6 +21,15 @@ CPPEffectorControllerAura::CPPEffectorControllerAura(const SPPInfo &ppi, u32 tim
 
 }
 
+CPPEffectorControllerAura::~CPPEffectorControllerAura()
+{
+	if (m_snd_left._feedback())
+		m_snd_left.stop();
+
+	if (m_snd_right._feedback())
+		m_snd_right.stop();
+}
+
 void CPPEffectorControllerAura::switch_off()
 {
 	m_effector_state		= eStateFadeOut;		
@@ -70,8 +79,46 @@ BOOL CPPEffectorControllerAura::update()
 #define FAKE_MIN_ADD_DIST	20.f
 
 
+CControllerAura::~CControllerAura()
+{
+	clear_effectors();
+}
+
+void CControllerAura::clear_effectors()
+{
+	CActor* actor = Actor();
+	if (actor)
+	{
+		// Effectors switched off earlier may still be playing during their fade-out.
+		for (u32 i = 0; i < m_effector_types.size(); ++i)
+			actor->Cameras().RemovePPEffector(m_effector_types[i]);
+
+		// Also remove the secondary camera effect belonging to the aura.
+		if (actor->Cameras().GetCamEffector((ECamEffectorType)effControllerAura2))
+			RemoveEffector(actor, effControllerAura2);
+	}
+
+	m_effector_types.clear();
+	m_effector = 0;
+	m_hit_state = eNone;
+	m_time_fake_aura = 0;
+}
+
 void CControllerAura::update_schedule()
 {
+	// CameraManager deletes an effector after its fade-out. Remove stale IDs.
+	CActor* actor = Actor();
+	if (actor)
+	{
+		for (u32 i = 0; i < m_effector_types.size();)
+		{
+			if (!actor->Cameras().GetPPEffector(m_effector_types[i]))
+				m_effector_types.erase(m_effector_types.begin() + i);
+			else
+				++i;
+		}
+	}
+
 	if (!m_object->g_Alive()) return;
 
 	float dist_to_actor		= Actor()->Position().distance_to(m_object->Position());
@@ -99,6 +146,7 @@ void CControllerAura::update_schedule()
 				// check to start
 				if (m_time_fake_aura < time())  {
 					m_effector = xr_new<CPPEffectorControllerAura>	(m_state, 5000, aura_sound.left, aura_sound.right);
+					m_effector_types.push_back(m_effector->get_type());
 					Actor()->Cameras().AddPPEffector				(m_effector);
 
 					m_time_fake_aura		= time() + 5000 + Random.randI(FAKE_AURA_DURATION);
@@ -123,6 +171,7 @@ void CControllerAura::update_schedule()
 			if (need_be_active) {
 				// create effector
 				m_effector = xr_new<CPPEffectorControllerAura>	(m_state, 5000, aura_sound.left, aura_sound.right);
+				m_effector_types.push_back(m_effector->get_type());
 				Actor()->Cameras().AddPPEffector				(m_effector);
 				
 				m_hit_state			= eEffectoring;
