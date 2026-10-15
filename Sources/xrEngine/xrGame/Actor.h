@@ -171,6 +171,7 @@ public:
 	
 	virtual void OnItemRuck		(CInventoryItem *inventory_item, EItemPlace previous_place);
 	virtual void OnItemBelt		(CInventoryItem *inventory_item, EItemPlace previous_place);
+	virtual void OnItemSlot(CInventoryItem* inventory_item, EItemPlace previous_place);
 	
 	virtual void OnItemDrop		(CInventoryItem *inventory_item);
 	virtual void OnItemDropUpdate ();
@@ -677,6 +678,7 @@ protected:
 public:
 		void							SetWeaponHideState				(u32 State, bool bSet);
 		virtual CCustomOutfit*			GetOutfit() const;
+		void						UpdateHUDArmTexture();
 private:
 	CActorCondition				*m_entity_condition;
 

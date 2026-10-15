@@ -684,6 +684,7 @@ BOOL CActor::net_Spawn		(CSE_Abstract* DC)
 	{
 		setLocal(FALSE);
 	};
+	UpdateHUDArmTexture();
 	return					TRUE;
 }
 
@@ -733,8 +734,16 @@ void CActor::net_Destroy	()
 	SetDefaultVisualOutfit(NULL);
 	
 
-	if(g_actor == this) g_actor= NULL;
-
+	if (g_actor == this)
+	{
+		if (!g_dedicated_server && ::Render)
+		{
+			LPCSTR base_texture = READ_IF_EXISTS(
+				pSettings, r_string, "hud_arm_texture", "base_texture", "");
+			::Render->set_HUDArmTextureOverride(base_texture, "");
+		}
+		g_actor = NULL;
+	}
 	Engine.Sheduler.Unregister	(this);
 }
 

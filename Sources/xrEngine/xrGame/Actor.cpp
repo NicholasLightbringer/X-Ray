@@ -979,6 +979,7 @@ void CActor::UpdateCL	()
 		else
 			xr_delete(m_sndShockEffector);
 	}
+	UpdateHUDArmTexture();
 }
 
 float	NET_Jump = 0;
@@ -1486,6 +1487,19 @@ void CActor::OnItemRuck		(CInventoryItem *inventory_item, EItemPlace previous_pl
 	CArtefact* artefact = smart_cast<CArtefact*>(inventory_item);
 	if(artefact && previous_place == eItemPlaceBelt)
 		MoveArtefactBelt(artefact, false);
+	UpdateHUDArmTexture();
+}
+void CActor::OnItemSlot(
+	CInventoryItem* inventory_item,
+	EItemPlace previous_place
+)
+{
+	CInventoryOwner::OnItemSlot(
+		inventory_item,
+		previous_place
+	);
+
+	UpdateHUDArmTexture();
 }
 void CActor::OnItemBelt		(CInventoryItem *inventory_item, EItemPlace previous_place)
 {
@@ -1745,4 +1759,30 @@ CCustomOutfit* CActor::GetOutfit() const
 {
 	PIItem _of	= inventory().m_slots[OUTFIT_SLOT].m_pIItem;
 	return _of?smart_cast<CCustomOutfit*>(_of):NULL;
+}
+
+
+void CActor::UpdateHUDArmTexture()
+{
+	if (g_dedicated_server || !::Render || g_actor != this)
+		return;
+
+	LPCSTR base_texture = READ_IF_EXISTS(
+		pSettings, r_string,
+		"hud_arm_texture", "base_texture", ""
+	);
+
+	LPCSTR replacement_texture = "";
+
+	CCustomOutfit* outfit = GetOutfit();
+
+	if (outfit && outfit->GetArmTexture().size())
+	{
+		replacement_texture = outfit->GetArmTexture().c_str();
+	}
+
+	::Render->set_HUDArmTextureOverride(
+		base_texture,
+		replacement_texture
+	);
 }

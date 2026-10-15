@@ -75,6 +75,10 @@ void CCustomOutfit::Load(LPCSTR section)
 		m_NightVisionSect = NULL;
 
 	m_full_icon_name								= pSettings->r_string(section,"full_icon_name");
+	if (pSettings->line_exist(section, "arm_texture"))
+		m_armTexture = pSettings->r_string(section, "arm_texture");
+	else
+		m_armTexture = NULL;
 }
 
 void CCustomOutfit::Hit(float hit_power, ALife::EHitType hit_type)
@@ -132,16 +136,17 @@ void	CCustomOutfit::OnMoveToSlot		()
 						NewVisual._set(SkinName);
 					}
 				}
-				
+
 				if (!NewVisual.size())
 					NewVisual = m_ActorVisual;
 
 				pActor->ChangeVisual(NewVisual);
 			}
-			if(pSettings->line_exist(cNameSect(),"bones_koeff_protection")){
-				m_boneProtection->reload( pSettings->r_string(cNameSect(),"bones_koeff_protection"), smart_cast<CKinematics*>(pActor->Visual()) );
+			if (pSettings->line_exist(cNameSect(), "bones_koeff_protection")) {
+				m_boneProtection->reload(pSettings->r_string(cNameSect(), "bones_koeff_protection"), smart_cast<CKinematics*>(pActor->Visual()));
 
 			};
+
 		}
 	}
 };
@@ -154,7 +159,7 @@ void	CCustomOutfit::OnMoveToRuck		()
 		if (pActor)
 		{
 			CTorch* pTorch = smart_cast<CTorch*>(pActor->inventory().ItemFromSlot(TORCH_SLOT));
-			if(pTorch)
+			if (pTorch)
 			{
 				pTorch->SwitchNightVision(false);
 			}

@@ -86,6 +86,12 @@ private:
 	SMatrixList*					M;
 	SConstantList*					C;
 
+	// Optional texture replacement, active only while rendering the first-person HUD.
+	bool							m_bHUDArmTexturePass;
+	shared_str						m_sHUDArmBaseTexture;
+	shared_str						m_sHUDArmReplacementTextureName;
+	ref_texture						m_hHUDArmReplacementTexture;
+
 	// Lists-expanded
 	CTexture*						textures_ps	[16	];	// stages
 	CTexture*						textures_vs	[5	];	// dmap + 4 vs
@@ -142,6 +148,8 @@ public:
 	IC	void						set_Constants		(ref_ctable& C)						{ set_Constants(&*C);			}
 
 		void						set_Textures		(STextureList* T);
+		void						SetHUDArmTextureOverride(LPCSTR base_texture, LPCSTR replacement_texture);
+		void						SetHUDArmTexturePass(BOOL active);
 	IC	void						set_Textures		(ref_texture_list& T)				{ set_Textures(&*T);			}
 
 #ifdef _EDITOR
@@ -234,7 +242,7 @@ public:
 	void dbg_DrawEllipse			(Fmatrix& T, u32 C);
 #endif
 
-	CBackend()						{	Invalidate(); };
+	CBackend() : m_bHUDArmTexturePass(false)	{	Invalidate();	};
 };
 
 extern ENGINE_API CBackend			RCache;

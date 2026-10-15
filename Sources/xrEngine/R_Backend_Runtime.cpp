@@ -105,6 +105,79 @@ void	CBackend::set_ClipPlanes	(u32 _enable, Fmatrix*	_xform  /*=NULL */, u32 fma
 	set_ClipPlanes		(_enable,F.planes,F.p_count);
 }
 
+static void NormalizeHUDArmTextureName(LPCSTR source, string_path destination)
+{
+	destination[0] = 0;
+	if (!source || !source[0])
+		return;
+
+	strcpy_s(destination, sizeof(string_path), source);
+	xr_strlwr(destination);
+	for (LPSTR p = destination; *p; ++p)
+	{
+		if (*p == '/')
+			*p = '\\';
+	}
+
+	// Texture resource names are relative to the textures directory and have no extension.
+	if (0 == strncmp(destination, "textures\\", 9))
+		memmove(destination, destination + 9, xr_strlen(destination + 9) + 1);
+
+	LPSTR ext = strext(destination);
+	if (ext && (0 == stricmp(ext, ".dds") || 0 == stricmp(ext, ".tga") ||
+		0 == stricmp(ext, ".bmp") || 0 == stricmp(ext, ".ogm")))
+		*ext = 0;
+}
+
+void CBackend::SetHUDArmTextureOverride(LPCSTR base_texture, LPCSTR replacement_texture)
+{
+	string_path base_name;
+	string_path replacement_name;
+	NormalizeHUDArmTextureName(base_texture, base_name);
+	NormalizeHUDArmTextureName(replacement_texture, replacement_name);
+
+	// A bare replacement name inherits the base texture's folder.
+	if (replacement_name[0] && !strchr(replacement_name, '\\') && !strchr(replacement_name, '/'))
+	{
+		LPSTR separator = strrchr(base_name, '\\');
+		if (separator)
+		{
+			string_path directory;
+			size_t directory_length = size_t(separator - base_name + 1);
+			strncpy_s(directory, sizeof(directory), base_name, directory_length);
+			string_path resolved;
+			strconcat(sizeof(resolved), resolved, directory, replacement_name);
+			strcpy_s(replacement_name, sizeof(replacement_name), resolved);
+		}
+	}
+
+	LPCSTR old_base = m_sHUDArmBaseTexture.size() ? m_sHUDArmBaseTexture.c_str() : "";
+	LPCSTR old_replacement = m_sHUDArmReplacementTextureName.size() ? m_sHUDArmReplacementTextureName.c_str() : "";
+	if (0 == xr_strcmp(old_base, base_name) && 0 == xr_strcmp(old_replacement, replacement_name))
+		return;
+
+	m_hHUDArmReplacementTexture.destroy();
+	m_sHUDArmBaseTexture = base_name[0] ? base_name : NULL;
+	m_sHUDArmReplacementTextureName = replacement_name[0] ? replacement_name : NULL;
+	if (base_name[0] && replacement_name[0] && 0 != xr_strcmp(base_name, replacement_name))
+		m_hHUDArmReplacementTexture.create(replacement_name);
+
+	// Force the backend to rebind materials after the override changes.
+	T = NULL;
+	for (u32 i = 0; i < _countof(textures_ps); ++i)
+		textures_ps[i] = NULL;
+}
+
+void CBackend::SetHUDArmTexturePass(BOOL active)
+{
+	bool new_state = (active != FALSE);
+	if (m_bHUDArmTexturePass != new_state)
+	{
+		m_bHUDArmTexturePass = new_state;
+		T = NULL;
+	}
+}
+
 void CBackend::set_Textures			(STextureList* _T)
 {
 	if (T == _T)	return;
@@ -118,7 +191,16 @@ void CBackend::set_Textures			(STextureList* _T)
 		std::pair<u32,ref_texture>&		loader	=	*_it;
 		u32			load_id		= loader.first		;
 		CTexture*	load_surf	= &*loader.second	;
-		if (load_id<256)		{
+		if (m_bHUDArmTexturePass && load_id < 256 && load_surf &&
+			m_sHUDArmBaseTexture.size() && m_hHUDArmReplacementTexture._get())
+		{
+			string_path actual_name;
+			NormalizeHUDArmTextureName(load_surf->cName.c_str(), actual_name);
+			if (0 == xr_strcmp(actual_name, m_sHUDArmBaseTexture.c_str()))
+				load_surf = m_hHUDArmReplacementTexture._get();
+		}
+		if (load_id<256)
+		{
 			// ordinary pixel surface
 			if (load_id>_last_ps)		_last_ps	=	load_id;
 			if (textures_ps[load_id]!=load_surf)	{

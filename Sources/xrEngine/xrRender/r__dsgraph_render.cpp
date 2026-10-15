@@ -358,6 +358,13 @@ void R_dsgraph_structure::r_dsgraph_render_graph	(u32	_priority, bool _clear)
 }
 
 //////////////////////////////////////////////////////////////////////////
+// HUD texture override interface
+void R_dsgraph_structure::set_HUDArmTextureOverride(LPCSTR base_texture, LPCSTR replacement_texture)
+{
+	RCache.SetHUDArmTextureOverride(base_texture, replacement_texture);
+}
+
+//////////////////////////////////////////////////////////////////////////
 // HUD render
 void R_dsgraph_structure::r_dsgraph_render_hud	()
 {
@@ -376,7 +383,9 @@ void R_dsgraph_structure::r_dsgraph_render_hud	()
 
 	// Rendering
 	rmNear						();
+	RCache.SetHUDArmTexturePass(TRUE);
 	mapHUD.traverseLR			(sorted_L1);
+	RCache.SetHUDArmTexturePass(FALSE);
 	mapHUD.clear				();
 	rmNormal					();
 
