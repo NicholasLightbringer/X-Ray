@@ -33,44 +33,58 @@ IC void MouseRayFromPoint	( Fvector& direction, int x, int y, Fmatrix& m_CamMat 
 void CRender::Screenshot		(IRender_interface::ScreenshotMode mode, LPCSTR name)
 {
 	if (!Device.b_is_Ready)			return;
-	if ((psDeviceFlags.test(rsFullscreen)) == 0) {
+	/*if ((psDeviceFlags.test(rsFullscreen)) == 0) {
 		Log("~ Can't capture screen while in windowed mode...");
+		return;
+	}*/
+
+	// Create temp-surface
+	IDirect3DSurface9* pFB = NULL;
+	IDirect3DSurface9* pBackBuffer = NULL;
+	D3DLOCKED_RECT D;
+	D3DSURFACE_DESC desc;
+	HRESULT hr;
+
+	// Get back buffer
+	hr = HW.pDevice->GetBackBuffer(
+		0, 0, D3DBACKBUFFER_TYPE_MONO, &pBackBuffer
+	);
+	if (hr != D3D_OK)
+		return;
+
+	hr = pBackBuffer->GetDesc(&desc);
+	if (hr != D3D_OK)
+	{
+		_RELEASE(pBackBuffer);
 		return;
 	}
 
-	// Create temp-surface
-	IDirect3DSurface9*	pFB;
-	D3DLOCKED_RECT		D;
-	HRESULT				hr;
-	hr					= HW.pDevice->CreateOffscreenPlainSurface(Device.dwWidth,Device.dwHeight,D3DFMT_A8R8G8B8,D3DPOOL_SYSTEMMEM,&pFB,NULL);
-	if(hr!=D3D_OK)		return;
+	// Create system memory surface with matching format
+	hr = HW.pDevice->CreateOffscreenPlainSurface(
+		desc.Width,
+		desc.Height,
+		desc.Format,
+		D3DPOOL_SYSTEMMEM,
+		&pFB,
+		NULL
+	);
 
-	hr					= HW.pDevice->GetFrontBufferData(0,pFB);
-	if(hr!=D3D_OK)		return;
-
-	hr					= pFB->LockRect(&D,0,D3DLOCK_NOSYSLOCK);
-	if(hr!=D3D_OK)		return;
-
-	// Image processing (gamma-correct)
-	u32* pPixel		= (u32*)D.pBits;
-	u32* pEnd		= pPixel+(Device.dwWidth*Device.dwHeight);
-	D3DGAMMARAMP	G;
-	Device.Gamma.GenLUT	(G);
-	for (int i=0; i<256; i++) {
-		G.red	[i]	/= 256;
-		G.green	[i]	/= 256;
-		G.blue	[i]	/= 256;
+	if (hr != D3D_OK)
+	{
+		_RELEASE(pBackBuffer);
+		return;
 	}
-	for (;pPixel!=pEnd; pPixel++)	{
-		u32 p = *pPixel;
-		*pPixel = color_xrgb	(
-			G.red	[color_get_R(p)],
-			G.green	[color_get_G(p)],
-			G.blue	[color_get_B(p)]
-			);
+
+	// Copy back buffer to system memory
+	hr = HW.pDevice->GetRenderTargetData(pBackBuffer, pFB);
+	_RELEASE(pBackBuffer);
+
+	if (hr != D3D_OK)
+	{
+		_RELEASE(pFB);
+		return;
 	}
-	hr					= pFB->UnlockRect();
-	if(hr!=D3D_OK)		goto _end_;
+
 
 	// Save
 	switch (mode)	{
@@ -120,18 +134,41 @@ void CRender::Screenshot		(IRender_interface::ScreenshotMode mode, LPCSTR name)
 				_RELEASE			(saved);
 				if (strstr(Core.Params,"-ss_tga"))	{ // hq
 					sprintf_s			(buf,sizeof(buf),"ssq_%s_%s_(%s).tga",Core.UserName,timestamp(t_stemp),(g_pGameLevel)?g_pGameLevel->name().c_str():"mainmenu");
-					ID3DXBuffer*		saved	= 0;
-					CHK_DX				(D3DXSaveSurfaceToFileInMemory (&saved,D3DXIFF_TGA,pFB,0,0));
-					IWriter*		fs	= FS.w_open	("$screenshots$",buf); R_ASSERT(fs);
-					fs->w				(saved->GetBufferPointer(),saved->GetBufferSize());
-					FS.w_close			(fs);
-					_RELEASE			(saved);
+
+					ID3DXBuffer* saved = NULL;
+
+					hr = D3DXSaveSurfaceToFileInMemory(
+						&saved, D3DXIFF_JPG, pFB, NULL, NULL
+					);
+
+					if (FAILED(hr) || !saved)
+					{
+						_RELEASE(saved);
+						goto _end_;
+					}
+
+					IWriter* fs = FS.w_open("$screenshots$", buf);
+
+					if (!fs)
+					{
+						_RELEASE(saved);
+						goto _end_;
+					}
+
+					fs->w(saved->GetBufferPointer(), saved->GetBufferSize());
+					FS.w_close(fs);
+
+					_RELEASE(saved);
+
 				}
 			}
 			break;
 		case IRender_interface::SM_FOR_LEVELMAP:
 		case IRender_interface::SM_FOR_CUBEMAP:
 			{
+			hr = pFB->LockRect(&D, 0, D3DLOCK_NOSYSLOCK);
+			if (FAILED(hr))
+				goto _end_;
 				string64			t_stemp;
 				string_path			buf;
 				VERIFY				(name);
@@ -144,6 +181,7 @@ void CRender::Screenshot		(IRender_interface::ScreenshotMode mode, LPCSTR name)
 				// save
 				u32* data			= (u32*)xr_malloc(Device.dwHeight*Device.dwHeight*4);
 				imf_Process			(data,Device.dwHeight,Device.dwHeight,(u32*)D.pBits,Device.dwWidth,Device.dwHeight,imf_lanczos3);
+				pFB->UnlockRect();
 				p.scanlenght		= Device.dwHeight*4;
 				p.width				= Device.dwHeight;
 				p.height			= Device.dwHeight;
