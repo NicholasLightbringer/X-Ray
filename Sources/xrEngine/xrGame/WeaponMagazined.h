@@ -148,6 +148,10 @@ protected:
 	//(даже если очень быстро нажали на курок и вызвалось FireEnd)
 	bool			m_bFireSingleShot;
 	bool			m_bFireStartedWithAmmo;
+	// Optional early ammo transfer during reload (reload_time is configured in milliseconds).
+	u32			m_dwReloadTime;
+	u32			m_dwReloadStartTime;
+	bool			m_bReloadMagazineDone;
 	//режимы стрельбы
 	bool			m_bHasDifferentFireModes;
 	xr_vector<int>	m_aFireModes;

@@ -31,6 +31,9 @@ CWeaponMagazined::CWeaponMagazined(LPCSTR name, ESoundTypes eSoundType) : CWeapo
 
 	m_bFireSingleShot = false;
 	m_bFireStartedWithAmmo = false;
+	m_dwReloadTime = 0;
+	m_dwReloadStartTime = 0;
+	m_bReloadMagazineDone = false;
 	m_iShotNum = 0;
 	m_iQueueSize = WEAPON_ININITE_QUEUE;
 	m_bLockType = false;
@@ -71,6 +74,8 @@ void CWeaponMagazined::net_Destroy()
 void CWeaponMagazined::Load	(LPCSTR section)
 {
 	inherited::Load		(section);
+	// Optional time (milliseconds) after which ammunition is inserted, independently of the HUD reload animation.
+	m_dwReloadTime = pSettings->line_exist(section, "reload_time") ? pSettings->r_u32(section, "reload_time") : 0;
 		
 	// Sounds
 	HUD_SOUND::LoadSound(section,"snd_draw"		, sndShow		, m_eSoundShow		);
@@ -421,6 +426,13 @@ void CWeaponMagazined::UpdateCL			()
 	inherited::UpdateCL	();
 	float dt = Device.fTimeDelta;
 
+	// Optional early completion of the ammunition transfer. Keep the reload state/animation active.
+	if (GetState() == eReload && GetNextState() == eReload && m_dwReloadTime > 0 && !m_bReloadMagazineDone && Device.dwTimeGlobal - m_dwReloadStartTime >= m_dwReloadTime)
+	{
+		ReloadMagazine();
+		m_bReloadMagazineDone = true;
+	}
+
 	
 
 	//когда происходит апдейт состояния оружия
@@ -585,7 +597,7 @@ void CWeaponMagazined::OnAnimationEnd(u32 state)
 {
 	switch(state) 
 	{
-		case eReload:	ReloadMagazine();	SwitchState(eIdle);	break;	// End of reload animation
+		case eReload:	if (!m_bReloadMagazineDone) ReloadMagazine(); m_bReloadMagazineDone = false; SwitchState(eIdle);	break;	// End of reload animation
 		case eHiding:	SwitchState(eHidden);   break;	// End of Hide
 		case eShowing:	SwitchState(eIdle);		break;	// End of Show
 		case eIdle:		switch2_Idle();			break;  // Keep showing idle
@@ -676,6 +688,8 @@ void CWeaponMagazined::switch2_Reload()
 {
 	CWeapon::FireEnd();
 
+	m_dwReloadStartTime = Device.dwTimeGlobal;
+	m_bReloadMagazineDone = false;
 	PlayReloadSound	();
 	PlayAnimReload	();
 	m_bPending = true;
