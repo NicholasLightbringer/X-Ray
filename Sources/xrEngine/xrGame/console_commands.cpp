@@ -16,6 +16,7 @@
 #include "hit.h"
 #include "PHDestroyable.h"
 #include "actor.h"
+#include "WeaponMagazined.h"
 #include "Actor_Flags.h"
 #include "customzone.h"
 #include "script_engine.h"
@@ -1651,6 +1652,7 @@ void CCC_RegisterCommands()
 
 
 
+	CMD4(CCC_Integer, "g_auto_reload", &g_auto_reload, 0, 1);
 #ifdef DEBUG
 	CMD4(CCC_Integer,	"string_table_error_msg",	&CStringTable::m_bWriteErrorsToLog,	0,	1);
 

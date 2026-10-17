@@ -17,6 +17,7 @@
 #include "object_broker.h"
 #include "string_table.h"
 
+int g_auto_reload = 1;
 CWeaponMagazined::CWeaponMagazined(LPCSTR name, ESoundTypes eSoundType) : CWeapon(name)
 {
 	m_eSoundShow		= ESoundTypes(SOUND_TYPE_ITEM_TAKING | eSoundType);
@@ -29,6 +30,7 @@ CWeaponMagazined::CWeaponMagazined(LPCSTR name, ESoundTypes eSoundType) : CWeapo
 	m_sSilencerFlameParticles = m_sSilencerSmokeParticles = NULL;
 
 	m_bFireSingleShot = false;
+	m_bFireStartedWithAmmo = false;
 	m_iShotNum = 0;
 	m_iQueueSize = WEAPON_ININITE_QUEUE;
 	m_bLockType = false;
@@ -134,6 +136,12 @@ void CWeaponMagazined::Load	(LPCSTR section)
 
 void CWeaponMagazined::FireStart		()
 {
+	// Ignore LMB input during draw/hide so it cannot trigger empty-click sounds
+	// or race with a reload request while the weapon is being shown.
+	if (IsShowing() || GetState() == eShowing || GetState() == eHiding)
+		return;
+
+	m_bFireStartedWithAmmo = false;
 	if(IsValid() && !IsMisfire()) 
 	{
 		if(!IsWorking() || AllowFireWhileWorking())
@@ -143,6 +151,7 @@ void CWeaponMagazined::FireStart		()
 			if(GetState()==eHiding) return;
 			if(GetState()==eMisfire) return;
 
+			m_bFireStartedWithAmmo = true;
 			inherited::FireStart();
 			
 			if (iAmmoElapsed == 0) 
@@ -157,22 +166,26 @@ void CWeaponMagazined::FireStart		()
 	}
 }
 
-void CWeaponMagazined::FireEnd() 
+void CWeaponMagazined::FireEnd()
 {
-	inherited::FireEnd();
+    const bool fired_with_ammo = m_bFireStartedWithAmmo;
+    m_bFireStartedWithAmmo = false;
+    inherited::FireEnd();
 
-	CActor	*actor = smart_cast<CActor*>(H_Parent());
-	if(!iAmmoElapsed && actor && GetState()!=eReload) 
-		Reload();
+    CActor* actor = smart_cast<CActor*>(H_Parent());
+    if (fired_with_ammo && g_auto_reload && !iAmmoElapsed && actor && GetState() != eReload && !IsShowing())
+        Reload();
 }
 
-void CWeaponMagazined::Reload() 
+void CWeaponMagazined::Reload()
 {
-	inherited::Reload();
+    // Do not allow reload to interrupt the draw animation.
+    if (IsShowing())
+        return;
 
-	TryReload();
+    inherited::Reload();
+    TryReload();
 }
-
 bool CWeaponMagazined::TryReload() 
 {
 	if(m_pCurrentInventory) 
@@ -638,16 +651,21 @@ void CWeaponMagazined::switch2_Fire	()
 }
 void CWeaponMagazined::switch2_Empty()
 {
-	OnZoomOut();
-	
-	if(!TryReload())
-	{
-		OnEmptyClick();
-	}
-	else
-	{
-		inherited::FireEnd();
-	}
+    OnZoomOut();
+
+    // An empty LMB click must not initiate a reload. Auto-reload is allowed
+    // only if this firing input started while the magazine had ammunition.
+    const bool allow_auto_reload = m_bFireStartedWithAmmo;
+    m_bFireStartedWithAmmo = false;
+
+    if (!allow_auto_reload || !g_auto_reload || !TryReload())
+    {
+        OnEmptyClick();
+    }
+    else
+    {
+        inherited::FireEnd();
+    }
 }
 void CWeaponMagazined::PlayReloadSound()
 {
@@ -665,6 +683,9 @@ void CWeaponMagazined::switch2_Reload()
 void CWeaponMagazined::switch2_Hiding()
 {
 	CWeapon::FireEnd();
+	
+	// Stop the reload sound immediately when the weapon starts being holstered.
+	HUD_SOUND::StopSound(sndReload);
 	
 	PlaySound	(sndHide,get_LastFP());
 

@@ -13,6 +13,7 @@ class ENGINE_API CMotionDef;
 #define WEAPON_ININITE_QUEUE -1
 
 
+extern int g_auto_reload;
 class CWeaponMagazined: public CWeapon
 {
 private:
@@ -146,6 +147,7 @@ protected:
 	//флаг того, что хотя бы один выстрел мы должны сделать
 	//(даже если очень быстро нажали на курок и вызвалось FireEnd)
 	bool			m_bFireSingleShot;
+	bool			m_bFireStartedWithAmmo;
 	//режимы стрельбы
 	bool			m_bHasDifferentFireModes;
 	xr_vector<int>	m_aFireModes;
