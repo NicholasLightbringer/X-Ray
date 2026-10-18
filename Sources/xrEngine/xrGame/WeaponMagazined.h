@@ -149,7 +149,8 @@ protected:
 	bool			m_bFireSingleShot;
 	bool			m_bFireStartedWithAmmo;
 	// Optional early ammo transfer during reload (reload_time is configured in milliseconds).
-	u32			m_dwReloadTime;
+	u32			m_dwReloadTime; // Effective ammo-transfer time for the current reload.
+	u32			m_dwReloadTimeConfig; // 0 means use 90% of the selected reload animation duration.
 	u32			m_dwReloadStartTime;
 	bool			m_bReloadMagazineDone;
 	//режимы стрельбы

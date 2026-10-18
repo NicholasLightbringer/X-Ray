@@ -32,6 +32,7 @@ CWeaponMagazined::CWeaponMagazined(LPCSTR name, ESoundTypes eSoundType) : CWeapo
 	m_bFireSingleShot = false;
 	m_bFireStartedWithAmmo = false;
 	m_dwReloadTime = 0;
+	m_dwReloadTimeConfig = 0;
 	m_dwReloadStartTime = 0;
 	m_bReloadMagazineDone = false;
 	m_iShotNum = 0;
@@ -74,9 +75,10 @@ void CWeaponMagazined::net_Destroy()
 void CWeaponMagazined::Load	(LPCSTR section)
 {
 	inherited::Load		(section);
-	// Optional time (milliseconds) after which ammunition is inserted, independently of the HUD reload animation.
-	m_dwReloadTime = pSettings->line_exist(section, "reload_time") ? pSettings->r_u32(section, "reload_time") : 0;
-		
+	// Optional time (milliseconds) after which ammunition is inserted. If omitted,
+	// use 90% of the selected reload animation duration.
+	m_dwReloadTimeConfig = pSettings->line_exist(section, "reload_time") ? pSettings->r_u32(section, "reload_time") : 0;
+	m_dwReloadTime = m_dwReloadTimeConfig;
 	// Sounds
 	HUD_SOUND::LoadSound(section,"snd_draw"		, sndShow		, m_eSoundShow		);
 	HUD_SOUND::LoadSound(section,"snd_holster"	, sndHide		, m_eSoundHide		);
@@ -691,7 +693,13 @@ void CWeaponMagazined::switch2_Reload()
 	m_dwReloadStartTime = Device.dwTimeGlobal;
 	m_bReloadMagazineDone = false;
 	PlayReloadSound	();
-	PlayAnimReload	();
+	// Select the animation once so the default timing matches the exact variant played.
+	MotionID reload_motion = random_anim(mhud.mhud_reload);
+	if (m_dwReloadTimeConfig > 0)
+		m_dwReloadTime = m_dwReloadTimeConfig;
+	else
+		m_dwReloadTime = (u32)(m_pHUD->motion_length(reload_motion) * 0.9f);
+	m_pHUD->animPlay(reload_motion, TRUE, this, GetState());
 	m_bPending = true;
 }
 void CWeaponMagazined::switch2_Hiding()

@@ -96,6 +96,7 @@ public:
 	// Animations
 	void				animPlay		(MotionID M, BOOL bMixIn/*=TRUE*/, CHudItem*  W /*=0*/, u32 state);
 	void				animDisplay		(MotionID M, BOOL bMixIn);
+	u32				motion_length(MotionID M) { return m_shared_data.motion_length(M); }
 	MotionID			animGet			(LPCSTR name);
 	
 	void				UpdatePosition	(const Fmatrix& transform);
