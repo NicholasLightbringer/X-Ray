@@ -7,6 +7,8 @@ Project "Horizon86"
 - Інерція HUD у прицілюванні + можливість налаштування у конфігу конкретної зброї (hud_aim_inertion = true/false, hud_aim_inertion_strength = ...).
 - Розкачка HUD як у старих збірках ТЧ + можливість налаштування (нові параметри для [bobbing_effector] у effectors.ltx: hud_bobbing_speed, hud_bobbing_amplitude, hud_bobbing_vertical).
 - Рух HUD зброї при стрибках і приземленні + можливість налаштування (нові параметри для [bobbing_effector] у effectors.ltx: hud_jump_down, hud_jump_up, hud_jump_duration, hud_jump_pitch_down, hud_jump_pitch_up, hud_landing_duration, hud_landing_down, hud_landing_pitch_down).
+- Розумна перезарядка: перезарядка вважається успішною через 90% від часу анімації reload. Для кожної зброї можна встановлювати свій власний reload_time у мілісекундах.
+- Фікс помилки, за якої зброю можна перезаряджати до закінчення анімації draw. Додано опцію g_auto_reload для автоматичного перезаряджання зброї після стрільби.
 - Динамічна зміна текстур рук за допомоги нового параметру arm_texture. Якщо arm_texture не вказано, то використовується базова текстура base_texture у секції [hud_arm_texture].
 - Відображення текстури-заглушки замість вильоту по "can`t find texture" + так само зроблено і для потенційно поламаних dds.
 - Можливість встановити круглий приціл, як у білдах (консольна команда hud_cursor_weapon).
