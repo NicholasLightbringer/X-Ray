@@ -35,6 +35,47 @@
 #include "weaponmagazined.h"
 #include "ai/stalker/ai_stalker.h"
 
+
+// Temporary actor-money storage for script-driven barter flows.
+// This is in-memory state and is intentionally not serialized into save files.
+static u32 g_stored_actor_money = 0;
+static bool g_actor_money_is_stored = false;
+
+void CScriptGameObject::StoreActorMoney()
+{
+    CActor* pActor = smart_cast<CActor*>(&object());
+    if (!pActor) {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "store_actor_money can only be called on the actor");
+        return;
+    }
+
+    // Avoid overwriting the original balance if store is called more than once.
+    if (g_actor_money_is_stored)
+        return;
+
+    g_stored_actor_money = pActor->get_money();
+    g_actor_money_is_stored = true;
+    pActor->set_money(0, true);
+}
+
+void CScriptGameObject::RestoreActorMoney()
+{
+    CActor* pActor = smart_cast<CActor*>(&object());
+    if (!pActor) {
+        ai().script_engine().script_log(ScriptStorage::eLuaMessageTypeError,
+            "restore_actor_money can only be called on the actor");
+        return;
+    }
+
+    if (!g_actor_money_is_stored)
+        return;
+
+    pActor->set_money(g_stored_actor_money, true);
+    g_stored_actor_money = 0;
+    g_actor_money_is_stored = false;
+}
+
 bool CScriptGameObject::GiveInfoPortion(LPCSTR info_id)
 {
 	CInventoryOwner* pInventoryOwner = smart_cast<CInventoryOwner*>(&object());

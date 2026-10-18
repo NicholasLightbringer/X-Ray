@@ -283,7 +283,8 @@ public:
 			void				TransferMoney		(int money, CScriptGameObject* pForWho);
 			void				GiveMoney			(int money);
 			u32					Money				();
-			
+			void				StoreActorMoney();
+			void				RestoreActorMoney();
 			void				SetRelation			(ALife::ERelationType relation, CScriptGameObject* pWhoToSet);
 	
 			int					GetAttitude			(CScriptGameObject* pToWho);
