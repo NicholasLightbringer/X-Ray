@@ -36,43 +36,22 @@ void CWeaponPistol::Load	(LPCSTR section)
 	animGet				(mhud_pistol.mhud_show_empty,	pSettings->r_string(*hud_sect, "anim_draw_empty"));
 	animGet				(mhud_pistol.mhud_reload_empty,	pSettings->r_string(*hud_sect, "anim_reload_empty"));
 
-	string128			str;
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_empty"),"_r");
-	animGet				(mhud_pistol_r.mhud_empty,		str);
+	// Vehicle-specific animations with the "_r" suffix are no longer required.
+	// Keep the vehicle motion sets populated, but reuse the standard animations.
+	animGet				(mhud_pistol_r.mhud_empty,		pSettings->r_string(*hud_sect, "anim_empty"));
+	animGet				(mhud_pistol_r.mhud_shot_l,		pSettings->r_string(*hud_sect, "anim_shot_last"));
+	animGet				(mhud_pistol_r.mhud_close,		 pSettings->r_string(*hud_sect, "anim_close"));
+	animGet				(mhud_pistol_r.mhud_show_empty,	pSettings->r_string(*hud_sect, "anim_draw_empty"));
+	animGet				(mhud_pistol_r.mhud_reload_empty,	pSettings->r_string(*hud_sect, "anim_reload_empty"));
 
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_shot_last"),"_r");
-	animGet				(mhud_pistol_r.mhud_shot_l,		str);
+	animGet				(wm_mhud_r.mhud_idle,		 pSettings->r_string(*hud_sect, "anim_idle"));
+	animGet				(wm_mhud_r.mhud_reload,		 pSettings->r_string(*hud_sect, "anim_reload"));
+	animGet				(wm_mhud_r.mhud_show,		 pSettings->r_string(*hud_sect, "anim_draw"));
+	animGet				(wm_mhud_r.mhud_hide,		 pSettings->r_string(*hud_sect, "anim_holster"));
+	animGet				(wm_mhud_r.mhud_shots,		 pSettings->r_string(*hud_sect, "anim_shoot"));
 
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_close"),"_r");
-	animGet				(mhud_pistol_r.mhud_close,		str);
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_draw_empty"),"_r");
-	animGet				(mhud_pistol_r.mhud_show_empty,	str);
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_reload_empty"),"_r");
-	animGet				(mhud_pistol_r.mhud_reload_empty,	str);
-
-
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_idle"),"_r");
-	animGet				(wm_mhud_r.mhud_idle,	str);
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_reload"),"_r");
-	animGet				(wm_mhud_r.mhud_reload,	str);
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_draw"),"_r");
-	animGet				(wm_mhud_r.mhud_show,	str);
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_holster"),"_r");
-	animGet				(wm_mhud_r.mhud_hide,	str);
-
-	strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_shoot"),"_r");
-	animGet				(wm_mhud_r.mhud_shots,	str);
-
-	if(IsZoomEnabled()){
-		strconcat(sizeof(str),str,pSettings->r_string(*hud_sect, "anim_idle_aim"),"_r");
-		animGet				(wm_mhud_r.mhud_idle_aim,		str);
-	}
+	if(IsZoomEnabled())
+		animGet				(wm_mhud_r.mhud_idle_aim,	pSettings->r_string(*hud_sect, "anim_idle_aim"));
 
 }
 
