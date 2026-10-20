@@ -25,8 +25,12 @@ void CWeaponBM16::Load	(LPCSTR section)
 
 void CWeaponBM16::PlayReloadSound()
 {
-	if(m_magazine.size()==1)	PlaySound	(m_sndReload1,get_LastFP());
-	else						PlaySound	(sndReload,get_LastFP());
+	if (iAmmoElapsed == 0 && m_bHasReloadEmptySound)
+		PlaySound(sndReloadEmpty, get_LastFP());
+	else if(m_magazine.size()==1)
+		PlaySound(m_sndReload1, get_LastFP());
+	else
+		PlaySound(sndReload, get_LastFP());
 }
 
 void CWeaponBM16::PlayAnimShoot()
@@ -37,16 +41,19 @@ void CWeaponBM16::PlayAnimShoot()
 		m_pHUD->animPlay(random_anim(mhud.mhud_shots),TRUE,this,GetState());
 }
 
-void CWeaponBM16::PlayAnimReload()
+MotionID CWeaponBM16::PlayAnimReload()
 {
 	bool b_both = HaveCartridgeInInventory(2);
 
 	VERIFY(GetState()==eReload);
+	MotionID motion;
 	if(m_magazine.size()==1 || !b_both)
-		m_pHUD->animPlay(random_anim(mhud_reload1),TRUE,this,GetState());
+		motion = random_anim(mhud_reload1);
 	else
-		m_pHUD->animPlay(random_anim(mhud.mhud_reload),TRUE,this,GetState());
+		motion = random_anim(mhud.mhud_reload);
 
+	m_pHUD->animPlay(motion, TRUE, this, GetState());
+	return motion;
 }
 
 void CWeaponBM16::PlayAnimIdle()

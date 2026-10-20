@@ -12,6 +12,7 @@ public:
 	virtual ~CBolt(void);
 
 	virtual void OnH_A_Chield();
+	virtual void StartIdleAnim();
 	virtual void OnEvent(NET_Packet& P, u16 type);
 	
 	virtual bool Activate();

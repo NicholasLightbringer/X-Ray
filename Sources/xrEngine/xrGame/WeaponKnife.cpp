@@ -18,6 +18,7 @@
 CWeaponKnife::CWeaponKnife() : CWeapon("KNIFE") 
 {
 	m_attackStart			= false;
+	m_bSprintAnim			= false;
 	SetState				( eHidden );
 	SetNextState			( eHidden );
 	knife_material_idx		= (u16)-1;
@@ -38,6 +39,8 @@ void CWeaponKnife::Load	(LPCSTR section)
 	// HUD :: Anims
 	R_ASSERT			(m_pHUD);
 	animGet				(mhud_idle,		pSettings->r_string(*hud_sect,"anim_idle"));
+	if (pSettings->line_exist(*hud_sect, "anim_idle_sprint"))
+		animGet(mhud_idle_sprint, pSettings->r_string(*hud_sect, "anim_idle_sprint"));
 	animGet				(mhud_hide,		pSettings->r_string(*hud_sect,"anim_hide"));
 	animGet				(mhud_show,		pSettings->r_string(*hud_sect,"anim_draw"));
 	animGet				(mhud_attack,	pSettings->r_string(*hud_sect,"anim_shoot1_start"));

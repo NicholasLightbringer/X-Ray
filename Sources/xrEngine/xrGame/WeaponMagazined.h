@@ -14,6 +14,7 @@ class ENGINE_API CMotionDef;
 
 
 extern int g_auto_reload;
+
 class CWeaponMagazined: public CWeapon
 {
 private:
@@ -25,6 +26,8 @@ protected:
 	HUD_SOUND		sndShot;
 	HUD_SOUND		sndEmptyClick;
 	HUD_SOUND		sndReload;
+	HUD_SOUND		sndReloadEmpty;
+	bool			m_bHasReloadEmptySound;
 	//звук текущего выстрела
 	HUD_SOUND*		m_pSndShotCurrent;
 
@@ -44,6 +47,7 @@ protected:
 		MotionSVec		mhud_idle;
 		MotionSVec		mhud_idle_aim;
 		MotionSVec		mhud_reload;	//
+		MotionSVec		mhud_reload_empty; // Optional empty-magazine reload animation
 		MotionSVec		mhud_hide;		//
 		MotionSVec		mhud_show;		//
 		MotionSVec		mhud_shots;		//
@@ -150,7 +154,8 @@ protected:
 	bool			m_bFireStartedWithAmmo;
 	// Optional early ammo transfer during reload (reload_time is configured in milliseconds).
 	u32			m_dwReloadTime; // Effective ammo-transfer time for the current reload.
-	u32			m_dwReloadTimeConfig; // 0 means use 90% of the selected reload animation duration.
+	u32			m_dwReloadTimeConfig; // 0 means use 90% of the standard reload animation duration.
+	u32			m_dwReloadTimeEmptyConfig; // 0 means use 90% of the empty reload animation duration.
 	u32			m_dwReloadStartTime;
 	bool			m_bReloadMagazineDone;
 	//режимы стрельбы
@@ -185,7 +190,7 @@ protected:
 	//виртуальные функции для проигрывания анимации HUD
 	virtual void	PlayAnimShow();
 	virtual void	PlayAnimHide();
-	virtual void	PlayAnimReload();
+	virtual MotionID	PlayAnimReload();
 	virtual void	PlayAnimIdle();
 	virtual void	PlayAnimShoot();
 	virtual void	PlayReloadSound		();

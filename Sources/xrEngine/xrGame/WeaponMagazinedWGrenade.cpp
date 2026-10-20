@@ -62,6 +62,8 @@ void CWeaponMagazinedWGrenade::Load	(LPCSTR section)
 
 	animGet				(mhud_idle_g,	pSettings->r_string(*hud_sect, "anim_idle_g"));
 	animGet				(mhud_reload_g,	pSettings->r_string(*hud_sect, "anim_reload_g"));
+	if (pSettings->line_exist(*hud_sect, "anim_reload_empty_g"))
+		animGet(mhud_reload_empty_g, pSettings->r_string(*hud_sect, "anim_reload_empty_g"));
 	animGet				(mhud_shots_g,	pSettings->r_string(*hud_sect, "anim_shoot_g"));
 	animGet				(mhud_switch_g,	pSettings->r_string(*hud_sect, "anim_switch_grenade_on"));
 	animGet				(mhud_switch,	pSettings->r_string(*hud_sect, "anim_switch_grenade_off"));
@@ -165,9 +167,15 @@ void CWeaponMagazinedWGrenade::switch2_Reload()
 	VERIFY(GetState()==eReload);
 	if(m_bGrenadeMode) 
 	{
-		PlaySound(sndReloadG,get_LastFP2());
+		if (iAmmoElapsed == 0 && m_bHasReloadEmptySound)
+			PlaySound(sndReloadEmpty, get_LastFP2());
+		else
+			PlaySound(sndReloadG, get_LastFP2());
 
-		m_pHUD->animPlay(random_anim(mhud_reload_g),FALSE,this,GetState());
+		MotionSVec& reload_anims = (iAmmoElapsed == 0 && mhud_reload_empty_g.size() > 0)
+			? mhud_reload_empty_g
+			: mhud_reload_g;
+		m_pHUD->animPlay(random_anim(reload_anims),FALSE,this,GetState());
 		m_bPending = true;
 	}
 	else 
@@ -630,14 +638,16 @@ void CWeaponMagazinedWGrenade::PlayAnimHide()
 		m_pHUD->animPlay (random_anim(mhud.mhud_hide),TRUE,this, GetState());
 }
 
-void CWeaponMagazinedWGrenade::PlayAnimReload()
+MotionID CWeaponMagazinedWGrenade::PlayAnimReload()
 {
 	VERIFY(GetState()==eReload);
 
-	if(IsGrenadeLauncherAttached())
-		m_pHUD->animPlay(random_anim(mhud_reload_w_gl),TRUE,this, GetState());
-	else
-		inherited::PlayAnimReload();
+	if(IsGrenadeLauncherAttached()){
+		MotionID motion = random_anim(mhud_reload_w_gl);
+		m_pHUD->animPlay(motion, TRUE, this, GetState());
+		return motion;
+	}else
+		return inherited::PlayAnimReload();
 }
 
 void CWeaponMagazinedWGrenade::PlayAnimIdle()

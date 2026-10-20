@@ -36,23 +36,81 @@ void CWeaponPistol::Load	(LPCSTR section)
 	animGet				(mhud_pistol.mhud_show_empty,	pSettings->r_string(*hud_sect, "anim_draw_empty"));
 	animGet				(mhud_pistol.mhud_reload_empty,	pSettings->r_string(*hud_sect, "anim_reload_empty"));
 
-	// Vehicle-specific animations with the "_r" suffix are no longer required.
-	// Keep the vehicle motion sets populated, but reuse the standard animations.
-	animGet				(mhud_pistol_r.mhud_empty,		pSettings->r_string(*hud_sect, "anim_empty"));
-	animGet				(mhud_pistol_r.mhud_shot_l,		pSettings->r_string(*hud_sect, "anim_shot_last"));
-	animGet				(mhud_pistol_r.mhud_close,		 pSettings->r_string(*hud_sect, "anim_close"));
-	animGet				(mhud_pistol_r.mhud_show_empty,	pSettings->r_string(*hud_sect, "anim_draw_empty"));
-	animGet				(mhud_pistol_r.mhud_reload_empty,	pSettings->r_string(*hud_sect, "anim_reload_empty"));
+	// Empty-magazine sprint idle is optional; keep the regular empty idle as fallback.
+	if (pSettings->line_exist(*hud_sect, "anim_idle_sprint_empty"))
+		animGet(mhud_pistol.mhud_idle_sprint_empty, pSettings->r_string(*hud_sect, "anim_idle_sprint_empty"));
 
-	animGet				(wm_mhud_r.mhud_idle,		 pSettings->r_string(*hud_sect, "anim_idle"));
-	animGet				(wm_mhud_r.mhud_reload,		 pSettings->r_string(*hud_sect, "anim_reload"));
-	animGet				(wm_mhud_r.mhud_show,		 pSettings->r_string(*hud_sect, "anim_draw"));
-	animGet				(wm_mhud_r.mhud_hide,		 pSettings->r_string(*hud_sect, "anim_holster"));
-	animGet				(wm_mhud_r.mhud_shots,		 pSettings->r_string(*hud_sect, "anim_shoot"));
+	string128			str;
 
-	if(IsZoomEnabled())
-		animGet				(wm_mhud_r.mhud_idle_aim,	pSettings->r_string(*hud_sect, "anim_idle_aim"));
+	// Vehicle (_r) animations are optional. If a specific _r motion set is
+	// absent, use the corresponding standard set instead of asserting/crashing.
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_empty"), "_r");
+	animGetOptional(mhud_pistol_r.mhud_empty, str, mhud_pistol.mhud_empty);
 
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_shot_last"), "_r");
+	animGetOptional(mhud_pistol_r.mhud_shot_l, str, mhud_pistol.mhud_shot_l);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_close"), "_r");
+	animGetOptional(mhud_pistol_r.mhud_close, str, mhud_pistol.mhud_close);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_draw_empty"), "_r");
+	animGetOptional(mhud_pistol_r.mhud_show_empty, str, mhud_pistol.mhud_show_empty);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_reload_empty"), "_r");
+	animGetOptional(mhud_pistol_r.mhud_reload_empty, str, mhud_pistol.mhud_reload_empty);
+
+	if (pSettings->line_exist(*hud_sect, "anim_idle_sprint_empty"))
+	{
+		strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_idle_sprint_empty"), "_r");
+		animGetOptional(mhud_pistol_r.mhud_idle_sprint_empty, str, mhud_pistol.mhud_idle_sprint_empty);
+	}
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_idle"), "_r");
+	animGetOptional(wm_mhud_r.mhud_idle, str, mhud.mhud_idle);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_reload"), "_r");
+	animGetOptional(wm_mhud_r.mhud_reload, str, mhud.mhud_reload);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_draw"), "_r");
+	animGetOptional(wm_mhud_r.mhud_show, str, mhud.mhud_show);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_holster"), "_r");
+	animGetOptional(wm_mhud_r.mhud_hide, str, mhud.mhud_hide);
+
+	strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_shoot"), "_r");
+	animGetOptional(wm_mhud_r.mhud_shots, str, mhud.mhud_shots);
+
+	if (IsZoomEnabled())
+	{
+		strconcat(sizeof(str), str, pSettings->r_string(*hud_sect, "anim_idle_aim"), "_r");
+		animGetOptional(wm_mhud_r.mhud_idle_aim, str, mhud.mhud_idle_aim);
+	}
+
+}
+
+void CWeaponPistol::animGetOptional(MotionSVec& lst, LPCSTR prefix, const MotionSVec& fallback)
+{
+	lst.clear();
+
+	const MotionID& M = m_pHUD->animGet(prefix);
+	if (M)
+		lst.push_back(M);
+
+	for (int i = 0; i < MAX_ANIM_COUNT; ++i)
+	{
+		string128 sh_anim;
+		sprintf_s(sh_anim, "%s%d", prefix, i);
+		const MotionID& motion = m_pHUD->animGet(sh_anim);
+		if (motion)
+			lst.push_back(motion);
+	}
+
+	// A missing _r set falls back to the standard animations for this motion.
+	if (lst.empty())
+	{
+		for (u32 i = 0; i < fallback.size(); ++i)
+			lst.push_back(fallback[i]);
+	}
 }
 
 void CWeaponPistol::OnH_B_Chield		()
@@ -83,6 +141,17 @@ void CWeaponPistol::PlayAnimIdle	()
 	VERIFY(GetState()==eIdle);
 	if(m_opened){ 
 		CWeaponPistol::WWPMotions& m = wwpm_current();
+		CActor* A = smart_cast<CActor*>(H_Parent());
+		if (!IsZoomed() && A && m.mhud_idle_sprint_empty.size())
+		{
+			CEntity::SEntityState st;
+			A->g_State(st);
+			if (st.bSprint)
+			{
+				m_pHUD->animPlay(random_anim(m.mhud_idle_sprint_empty), TRUE, NULL, GetState());
+				return;
+			}
+		}
 		m_pHUD->animPlay(random_anim(m.mhud_empty), TRUE, NULL, GetState());
 	}else{
 		CActor* A = smart_cast<CActor*>(H_Parent());
@@ -94,18 +163,22 @@ void CWeaponPistol::PlayAnimIdle	()
 	}
 }
 
-void CWeaponPistol::PlayAnimReload	()
-{	
+MotionID CWeaponPistol::PlayAnimReload	()
+{
 	VERIFY(GetState()==eReload);
-	if(m_opened){ 
+	MotionID motion;
+	if(m_opened){
 		CWeaponPistol::WWPMotions& m = wwpm_current();
-		m_pHUD->animPlay(random_anim(m.mhud_reload_empty), TRUE, this, GetState());
+		motion = random_anim(m.mhud_reload_empty);
 	}else{
 		CWeaponMagazined::SWMmotions& m = swm_current();
-		m_pHUD->animPlay(random_anim(m.mhud_reload), TRUE, this, GetState());
+		motion = random_anim(m.mhud_reload);
 	}
-	
-	m_opened = false;		
+	m_pHUD->animPlay(motion, TRUE, this, GetState());
+
+	// Keep the pistol state synchronized with the normal post-reload idle/holster set.
+	m_opened = false;
+	return motion;
 }
 
 
@@ -170,14 +243,25 @@ void CWeaponPistol::OnShot		()
 	PHGetLinearVell(vel);
 	OnShellDrop					(get_LastSP(),  vel);
 
-	// Огонь из ствола
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	
 	StartFlameParticles	();
 	R_ASSERT2(!m_pFlameParticles || !m_pFlameParticles->IsLooped(),
 			  "can't set looped particles system for shoting with pistol");
 	
-	//дым из ствола
+	//пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	StartSmokeParticles	(get_LastFP(), vel);
+}
+
+void CWeaponPistol::UpdateCL()
+{
+	inherited::UpdateCL();
+
+	// Inventory operations can change the magazine without playing weapon
+	// animations. Synchronize the pistol animation set while it is idle.
+	// Do not touch m_opened during reload/show/hide/fire state transitions.
+	if (GetState() == eIdle)
+		m_opened = (iAmmoElapsed == 0);
 }
 
 void CWeaponPistol::UpdateSounds()

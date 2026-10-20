@@ -8,6 +8,8 @@ private:
 	typedef CWeapon inherited;
 protected:
 	MotionSVec			mhud_idle;
+	MotionSVec			mhud_idle_sprint;
+	bool			m_bSprintAnim;
 	MotionSVec			mhud_hide;
 	MotionSVec			mhud_show;
 	MotionSVec			mhud_attack;
@@ -21,6 +23,7 @@ protected:
 
 protected:
 
+	virtual void		UpdateCL				();
 	virtual void		switch2_Idle				();
 	virtual void		switch2_Hiding				();
 	virtual void		switch2_Hidden				();

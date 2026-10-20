@@ -18,14 +18,15 @@ public:
 	virtual void	net_Destroy		();
 	virtual void	OnH_B_Chield	();
 
-	//анимации
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	virtual void	PlayAnimShow	();
 	virtual void	PlayAnimIdle	();
 	virtual void	PlayAnimHide	();
-	virtual void	PlayAnimReload	();
+	virtual MotionID	PlayAnimReload	();
 	virtual void	PlayAnimShoot	();
 
 	virtual void	UpdateSounds	();
+	virtual void	UpdateCL		();
 protected:	
 	virtual bool	AllowFireWhileWorking() {return true;}
 
@@ -37,10 +38,12 @@ protected:
 		MotionSVec		mhud_shot_l;
 		MotionSVec		mhud_close;
 		MotionSVec		mhud_reload_empty;
+		MotionSVec		mhud_idle_sprint_empty;
 	};
 	WWPMotions			mhud_pistol,mhud_pistol_r;
 	SWMmotions			wm_mhud_r;
 	
+	void				animGetOptional	(MotionSVec& lst, LPCSTR prefix, const MotionSVec& fallback);
 	WWPMotions&			wwpm_current	();
 	SWMmotions&			swm_current	();
 

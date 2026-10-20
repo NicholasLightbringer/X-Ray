@@ -61,7 +61,7 @@ public:
 	//виртуальные функции для проигрывания анимации HUD
 	virtual void	PlayAnimShow();
 	virtual void	PlayAnimHide();
-	virtual void	PlayAnimReload();
+	virtual MotionID	PlayAnimReload();
 	virtual void	PlayAnimIdle();
 	virtual void	PlayAnimShoot();
 	virtual void	PlayAnimModeSwitch();
@@ -76,6 +76,7 @@ public:
 	MotionSVec			mhud_idle_g;
 	MotionSVec			mhud_idle_g_aim;
 	MotionSVec			mhud_reload_g;
+	MotionSVec			mhud_reload_empty_g; // Optional empty reload animation for grenade-launcher mode
 	MotionSVec			mhud_shots_g;
 	MotionSVec			mhud_switch_g, mhud_switch;
 	MotionSVec			mhud_show_g;

@@ -23,7 +23,7 @@ public:
 
 protected:
 	virtual void	PlayAnimShoot					();
-	virtual void	PlayAnimReload					();
+	virtual MotionID	PlayAnimReload					();
 	virtual void	PlayReloadSound					();
 	virtual void	PlayAnimIdle					();
 

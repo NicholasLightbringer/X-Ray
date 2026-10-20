@@ -18,6 +18,7 @@
 #include "string_table.h"
 
 int g_auto_reload = 1;
+
 CWeaponMagazined::CWeaponMagazined(LPCSTR name, ESoundTypes eSoundType) : CWeapon(name)
 {
 	m_eSoundShow		= ESoundTypes(SOUND_TYPE_ITEM_TAKING | eSoundType);
@@ -33,6 +34,8 @@ CWeaponMagazined::CWeaponMagazined(LPCSTR name, ESoundTypes eSoundType) : CWeapo
 	m_bFireStartedWithAmmo = false;
 	m_dwReloadTime = 0;
 	m_dwReloadTimeConfig = 0;
+	m_dwReloadTimeEmptyConfig = 0;
+	m_bHasReloadEmptySound = false;
 	m_dwReloadStartTime = 0;
 	m_bReloadMagazineDone = false;
 	m_iShotNum = 0;
@@ -48,6 +51,7 @@ CWeaponMagazined::~CWeaponMagazined()
 	HUD_SOUND::DestroySound(sndShot);
 	HUD_SOUND::DestroySound(sndEmptyClick);
 	HUD_SOUND::DestroySound(sndReload);
+	HUD_SOUND::DestroySound(sndReloadEmpty);
 }
 
 
@@ -58,6 +62,7 @@ void CWeaponMagazined::StopHUDSounds		()
 	
 	HUD_SOUND::StopSound(sndEmptyClick);
 	HUD_SOUND::StopSound(sndReload);
+	HUD_SOUND::StopSound(sndReloadEmpty);
 
 	HUD_SOUND::StopSound(sndShot);
 //.	if(sndShot.enable && sndShot.snd.feedback)
@@ -78,13 +83,18 @@ void CWeaponMagazined::Load	(LPCSTR section)
 	// Optional time (milliseconds) after which ammunition is inserted. If omitted,
 	// use 90% of the selected reload animation duration.
 	m_dwReloadTimeConfig = pSettings->line_exist(section, "reload_time") ? pSettings->r_u32(section, "reload_time") : 0;
+	m_dwReloadTimeEmptyConfig = pSettings->line_exist(section, "reload_time_empty") ? pSettings->r_u32(section, "reload_time_empty") : 0;
 	m_dwReloadTime = m_dwReloadTimeConfig;
+		
 	// Sounds
 	HUD_SOUND::LoadSound(section,"snd_draw"		, sndShow		, m_eSoundShow		);
 	HUD_SOUND::LoadSound(section,"snd_holster"	, sndHide		, m_eSoundHide		);
 	HUD_SOUND::LoadSound(section,"snd_shoot"	, sndShot		, m_eSoundShot		);
 	HUD_SOUND::LoadSound(section,"snd_empty"	, sndEmptyClick	, m_eSoundEmptyClick	);
 	HUD_SOUND::LoadSound(section,"snd_reload"	, sndReload		, m_eSoundReload		);
+	m_bHasReloadEmptySound = pSettings->line_exist(section, "snd_reload_empty");
+	if (m_bHasReloadEmptySound)
+		HUD_SOUND::LoadSound(section, "snd_reload_empty", sndReloadEmpty, m_eSoundReload);
 	
 	m_pSndShotCurrent = &sndShot;
 		
@@ -93,6 +103,8 @@ void CWeaponMagazined::Load	(LPCSTR section)
 	R_ASSERT			(m_pHUD);
 	animGet				(mhud.mhud_idle,		pSettings->r_string(*hud_sect, "anim_idle"));
 	animGet				(mhud.mhud_reload,	pSettings->r_string(*hud_sect, "anim_reload"));
+	if (pSettings->line_exist(*hud_sect, "anim_reload_empty"))
+		animGet(mhud.mhud_reload_empty, pSettings->r_string(*hud_sect, "anim_reload_empty"));
 	animGet				(mhud.mhud_show,		pSettings->r_string(*hud_sect, "anim_draw"));
 	animGet				(mhud.mhud_hide,		pSettings->r_string(*hud_sect, "anim_holster"));
 	animGet				(mhud.mhud_shots,	pSettings->r_string(*hud_sect, "anim_shoot"));
@@ -104,7 +116,7 @@ void CWeaponMagazined::Load	(LPCSTR section)
 		animGet				(mhud.mhud_idle_aim,		pSettings->r_string(*hud_sect, "anim_idle_aim"));
 	
 
-	//звуки и партиклы глушителя, еслит такой есть
+	//пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	if(m_eSilencerStatus == ALife::eAddonAttachable)
 	{
 		if(pSettings->line_exist(section, "silencer_flame_particles"))
@@ -193,6 +205,7 @@ void CWeaponMagazined::Reload()
     inherited::Reload();
     TryReload();
 }
+
 bool CWeaponMagazined::TryReload() 
 {
 	if(m_pCurrentInventory) 
@@ -244,7 +257,7 @@ bool CWeaponMagazined::IsAmmoAvailable()
 
 void CWeaponMagazined::OnMagazineEmpty() 
 {
-	//попытка стрелять когда нет патронов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if(GetState() == eIdle) 
 	{
 		OnEmptyClick			();
@@ -304,11 +317,11 @@ void CWeaponMagazined::ReloadMagazine()
 {
 	m_dwAmmoCurrentCalcFrame = 0;	
 
-	//устранить осечку при перезарядке
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if(IsMisfire())	bMisfire = false;
 	
-	//переменная блокирует использование
-	//только разных типов патронов
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //	static bool l_lockType = false;
 	if (!m_bLockType) {
 		m_ammoName	= NULL;
@@ -324,14 +337,14 @@ void CWeaponMagazined::ReloadMagazine()
 	
 	if(!unlimited_ammo()) 
 	{
-		//попытаться найти в инвентаре патроны текущего типа 
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ 
 		m_pAmmo = smart_cast<CWeaponAmmo*>(m_pCurrentInventory->GetAny(*m_ammoTypes[m_ammoType]));
 		
 		if(!m_pAmmo && !m_bLockType) 
 		{
 			for(u32 i = 0; i < m_ammoTypes.size(); ++i) 
 			{
-				//проверить патроны всех подходящих типов
+				//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 				m_pAmmo = smart_cast<CWeaponAmmo*>(m_pCurrentInventory->GetAny(*m_ammoTypes[i]));
 				if(m_pAmmo) 
 				{ 
@@ -345,10 +358,10 @@ void CWeaponMagazined::ReloadMagazine()
 		m_ammoType = m_ammoType;
 
 
-	//нет патронов для перезарядки
+	//пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 	if(!m_pAmmo && !unlimited_ammo() ) return;
 
-	//разрядить магазин, если загружаем патронами другого типа
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ
 	if(!m_bLockType && !m_magazine.empty() && 
 		(!m_pAmmo || xr_strcmp(m_pAmmo->cNameSect(), 
 					 *m_magazine.back().m_ammoSect)))
@@ -373,7 +386,7 @@ void CWeaponMagazined::ReloadMagazine()
 
 	VERIFY((u32)iAmmoElapsed == m_magazine.size());
 
-	//выкинуть коробку патронов, если она пустая
+	//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if(m_pAmmo && !m_pAmmo->m_boxCurr && OnServer()) 
 		m_pAmmo->SetDropManual(TRUE);
 
@@ -437,8 +450,8 @@ void CWeaponMagazined::UpdateCL			()
 
 	
 
-	//когда происходит апдейт состояния оружия
-	//ничего другого не делать
+	//пїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
+	//пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if(GetNextState() == GetState())
 	{
 		switch (GetState())
@@ -581,10 +594,10 @@ void CWeaponMagazined::OnShot		()
 	PHGetLinearVell(vel);
 	OnShellDrop					(get_LastSP(), vel);
 	
-	// Огонь из ствола
+	// пїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	StartFlameParticles	();
 
-	//дым из ствола
+	//пїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	ForceUpdateFireParticles	();
 	StartSmokeParticles			(get_LastFP(), vel);
 }
@@ -683,7 +696,10 @@ void CWeaponMagazined::switch2_Empty()
 }
 void CWeaponMagazined::PlayReloadSound()
 {
-	PlaySound	(sndReload,get_LastFP());
+	if (iAmmoElapsed == 0 && m_bHasReloadEmptySound)
+		PlaySound(sndReloadEmpty, get_LastFP());
+	else
+		PlaySound(sndReload, get_LastFP());
 }
 
 void CWeaponMagazined::switch2_Reload()
@@ -692,14 +708,17 @@ void CWeaponMagazined::switch2_Reload()
 
 	m_dwReloadStartTime = Device.dwTimeGlobal;
 	m_bReloadMagazineDone = false;
-	PlayReloadSound	();
-	// Select the animation once so the default timing matches the exact variant played.
-	MotionID reload_motion = random_anim(mhud.mhud_reload);
-	if (m_dwReloadTimeConfig > 0)
-		m_dwReloadTime = m_dwReloadTimeConfig;
+	PlayReloadSound();
+
+	// Let each weapon choose and start its own reload animation. This is
+	// required by pistols (slide state) and multi-barrel weapons (reload_1).
+	MotionID reload_motion = PlayAnimReload();
+	const bool empty_reload = (iAmmoElapsed == 0);
+	const u32 configured_reload_time = empty_reload ? m_dwReloadTimeEmptyConfig : m_dwReloadTimeConfig;
+	if (configured_reload_time > 0)
+		m_dwReloadTime = configured_reload_time;
 	else
 		m_dwReloadTime = (u32)(m_pHUD->motion_length(reload_motion) * 0.9f);
-	m_pHUD->animPlay(reload_motion, TRUE, this, GetState());
 	m_bPending = true;
 }
 void CWeaponMagazined::switch2_Hiding()
@@ -708,6 +727,7 @@ void CWeaponMagazined::switch2_Hiding()
 	
 	// Stop the reload sound immediately when the weapon starts being holstered.
 	HUD_SOUND::StopSound(sndReload);
+	HUD_SOUND::StopSound(sndReloadEmpty);
 	
 	PlaySound	(sndHide,get_LastFP());
 
@@ -736,7 +756,7 @@ bool CWeaponMagazined::Action(s32 cmd, u32 flags)
 {
 	if(inherited::Action(cmd, flags)) return true;
 	
-	//если оружие чем-то занято, то ничего не делать
+	//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ-пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ
 	if(IsPending()) return false;
 	
 	switch(cmd) 
@@ -848,7 +868,7 @@ bool CWeaponMagazined::Attach(PIItem pIItem, bool b_send_event)
 	{
 		if (b_send_event && OnServer())
 		{
-			//уничтожить подсоединенную вещь из инвентаря
+			//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 //.			pIItem->Drop					();
 			pIItem->object().DestroyObject	();
 		};
@@ -903,7 +923,7 @@ bool CWeaponMagazined::Detach(const char* item_section_name, bool b_spawn_item)
 void CWeaponMagazined::InitAddons()
 {
 	//////////////////////////////////////////////////////////////////////////
-	// Прицел
+	// пїЅпїЅпїЅпїЅпїЅпїЅ
 	m_fIronSightZoomFactor = READ_IF_EXISTS(pSettings, r_float, cNameSect(), "ironsight_zoom_factor", 50.0f);
 
 	if(IsScopeAttached())
@@ -953,10 +973,10 @@ void CWeaponMagazined::InitAddons()
 		m_pSndShotCurrent = &sndSilencerShot;
 
 
-		//сила выстрела
+		//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		LoadFireParams	(*cNameSect(), "");
 
-		//подсветка от выстрела
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		LoadLights		(*cNameSect(), "silencer_");
 		ApplySilencerKoeffs();
 	}
@@ -966,9 +986,9 @@ void CWeaponMagazined::InitAddons()
 		m_sSmokeParticlesCurrent = m_sSmokeParticles;
 		m_pSndShotCurrent = &sndShot;
 
-		//сила выстрела
+		//пїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		LoadFireParams	(*cNameSect(), "");
-		//подсветка от выстрела
+		//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 		LoadLights		(*cNameSect(), "");
 	}
 
@@ -1010,7 +1030,7 @@ void CWeaponMagazined::ApplySilencerKoeffs	()
 	camDispersionInc	*= CD_k;
 }
 
-//виртуальные функции для проигрывания анимации HUD
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ HUD
 void CWeaponMagazined::PlayAnimShow()
 {
 	VERIFY(GetState()==eShowing);
@@ -1024,10 +1044,15 @@ void CWeaponMagazined::PlayAnimHide()
 }
 
 
-void CWeaponMagazined::PlayAnimReload()
+MotionID CWeaponMagazined::PlayAnimReload()
 {
 	VERIFY(GetState()==eReload);
-	m_pHUD->animPlay(random_anim(mhud.mhud_reload),TRUE,this,GetState());
+	MotionSVec& reload_anims = (iAmmoElapsed == 0 && mhud.mhud_reload_empty.size() > 0)
+		? mhud.mhud_reload_empty
+		: mhud.mhud_reload;
+	MotionID motion = random_anim(reload_anims);
+	m_pHUD->animPlay(motion, TRUE, this, GetState());
+	return motion;
 }
 
 bool CWeaponMagazined::TryPlayAnimIdle()
@@ -1107,7 +1132,7 @@ void CWeaponMagazined::OnZoomOut		()
 
 }
 
-//переключение режимов стрельбы одиночными и очередями
+//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 bool CWeaponMagazined::SwitchMode			()
 {
 	if(eIdle != GetState() || IsPending()) return false;

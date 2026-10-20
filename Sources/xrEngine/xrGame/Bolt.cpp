@@ -3,7 +3,8 @@
 #include "ParticlesObject.h"
 #include "PhysicsShell.h"
 #include "xr_level_controller.h"
-
+#include "Actor.h"
+#include "WeaponHUD.h"
 CBolt::CBolt(void) 
 {
 	m_weight					= .1f;
@@ -97,4 +98,19 @@ void CBolt::SetInitiator			(u16 id)
 u16	CBolt::Initiator				()
 {
 	return m_thrower_id;
+}
+void CBolt::StartIdleAnim()
+{
+	CActor* actor = smart_cast<CActor*>(H_Parent());
+	if (actor && pSettings->line_exist(*hud_sect, "anim_idle_sprint"))
+	{
+		CEntity::SEntityState st;
+		actor->g_State(st);
+		if (st.bSprint)
+		{
+			m_pHUD->animDisplay(m_pHUD->animGet(pSettings->r_string(*hud_sect, "anim_idle_sprint")), TRUE);
+			return;
+		}
+	}
+	inherited::StartIdleAnim();
 }
