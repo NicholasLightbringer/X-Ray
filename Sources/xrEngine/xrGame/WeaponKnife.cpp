@@ -208,10 +208,34 @@ void CWeaponKnife::switch2_Attacking	(u32 state)
 	m_bPending		= true;
 }
 
+void CWeaponKnife::UpdateCL()
+{
+	inherited::UpdateCL();
+
+	if (GetState() != eIdle || mhud_idle_sprint.empty())
+		return;
+
+	CActor* actor = smart_cast<CActor*>(H_Parent());
+	bool sprint = false;
+	if (actor)
+	{
+		CEntity::SEntityState st;
+		actor->g_State(st);
+		sprint = st.bSprint;
+	}
+
+	if (sprint != m_bSprintAnim)
+	{
+		m_bSprintAnim = sprint;
+		m_pHUD->animPlay(sprint ? random_anim(mhud_idle_sprint) : random_anim(mhud_idle), TRUE, this, GetState());
+	}
+}
+
 void CWeaponKnife::switch2_Idle	()
 {
 	VERIFY(GetState()==eIdle);
 
+	m_bSprintAnim = false;
 	m_pHUD->animPlay(random_anim(mhud_idle), TRUE, this, GetState());
 	m_bPending = false;
 }

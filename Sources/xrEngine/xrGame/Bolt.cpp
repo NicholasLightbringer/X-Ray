@@ -1,16 +1,18 @@
 #include "stdafx.h"
 #include "bolt.h"
+#include "entity.h"
+#include "actor.h"
 #include "ParticlesObject.h"
 #include "PhysicsShell.h"
 #include "xr_level_controller.h"
-#include "Actor.h"
-#include "WeaponHUD.h"
+
 CBolt::CBolt(void) 
 {
 	m_weight					= .1f;
 	m_slot						= BOLT_SLOT;
 	m_flags.set					(Fruck, FALSE);
 	m_thrower_id				=u16(-1);
+	m_bSprintAnimActive		= false;
 }
 
 CBolt::~CBolt(void) 
@@ -99,18 +101,54 @@ u16	CBolt::Initiator				()
 {
 	return m_thrower_id;
 }
+
+void CBolt::UpdateCL()
+{
+	inherited::UpdateCL();
+
+	// Only switch the idle animation; do not interrupt showing, hiding or throwing.
+	if (GetState() != MS_IDLE)
+	{
+		m_bSprintAnimActive = false;
+		return;
+	}
+
+	if (!m_pHUD || !hud_sect)
+		return;
+
+	CActor* actor = smart_cast<CActor*>(H_Parent());
+	if (!actor)
+		return;
+
+	CEntity::SEntityState st;
+	actor->g_State(st);
+	const bool sprint_anim = st.bSprint && pSettings->line_exist(*hud_sect, "anim_idle_sprint");
+
+	if (sprint_anim == m_bSprintAnimActive)
+		return;
+
+	m_bSprintAnimActive = sprint_anim;
+	if (sprint_anim)
+		m_pHUD->animDisplay(m_pHUD->animGet(pSettings->r_string(*hud_sect, "anim_idle_sprint")), TRUE);
+	else
+		inherited::StartIdleAnim();
+}
+
 void CBolt::StartIdleAnim()
 {
 	CActor* actor = smart_cast<CActor*>(H_Parent());
-	if (actor && pSettings->line_exist(*hud_sect, "anim_idle_sprint"))
+	if (actor && hud_sect.size() > 0 && pSettings->line_exist(*hud_sect, "anim_idle_sprint"))
 	{
 		CEntity::SEntityState st;
 		actor->g_State(st);
 		if (st.bSprint)
 		{
+			m_bSprintAnimActive = true;
 			m_pHUD->animDisplay(m_pHUD->animGet(pSettings->r_string(*hud_sect, "anim_idle_sprint")), TRUE);
 			return;
 		}
 	}
+
+	m_bSprintAnimActive = false;
 	inherited::StartIdleAnim();
 }

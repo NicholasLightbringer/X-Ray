@@ -7,9 +7,9 @@ class CWeaponKnife: public CWeapon {
 private:
 	typedef CWeapon inherited;
 protected:
-	MotionSVec			mhud_idle;
-	MotionSVec			mhud_idle_sprint;
-	bool			m_bSprintAnim;
+	MotionSVec			 mhud_idle;
+	MotionSVec			 mhud_idle_sprint;
+	bool				m_bSprintAnim;
 	MotionSVec			mhud_hide;
 	MotionSVec			mhud_show;
 	MotionSVec			mhud_attack;
