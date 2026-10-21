@@ -8,6 +8,8 @@
 #include "physic_item.h"
 #include "WeaponHUD.h"
 #include "actor.h"
+#include "CharacterPhysicsSupport.h"
+#include "PHMovementControl.h"
 #include "actoreffector.h"
 #include "Missile.h"
 #include "xrmessages.h"
@@ -27,6 +29,7 @@ CHudItem::CHudItem(void)
 	m_bInertionAllow	= true;
 	m_fHudBobbingTime		= 0.f;
 	m_fHudBobbingReminder	= 0.f;
+	m_fHudBobbingPhaseOffset	= 0.f;
 	m_fHudJumpEffectTime = 0.f;
 	m_fHudLandingEffectTime = 0.f;
 	m_fHudLandingDelayTime = 0.f;
@@ -200,6 +203,15 @@ void CHudItem::UpdateHudPosition	()
 
 				static const float HUD_BOB_SPEED = READ_IF_EXISTS(
 					pSettings, r_float, "bobbing_effector", "hud_bobbing_speed", 0.75f);
+				static const bool SYNCHRONIZE_BOBBING = READ_IF_EXISTS(
+					pSettings, r_bool, "bobbing_effector", "synchronize_bobbing", false);
+
+				// Disable HUD bobbing only while the actor is sprinting and this
+				// item's HUD section defines one of the sprint idle animations.
+				const bool has_sprint_idle_anim = hud_sect.size() > 0 &&
+					(pSettings->line_exist(*hud_sect, "anim_idle_sprint") ||
+					 pSettings->line_exist(*hud_sect, "anim_idle_sprint_empty"));
+				const bool suppress_sprint_bobbing = (mstate & mcSprint) && has_sprint_idle_anim;
 
 				static const float HUD_BOB_AMPLITUDE = READ_IF_EXISTS(
 					pSettings, r_float, "bobbing_effector", "hud_bobbing_amplitude", 1.0f);
@@ -207,7 +219,12 @@ void CHudItem::UpdateHudPosition	()
 				static const float HUD_BOB_VERTICAL_SCALE = READ_IF_EXISTS(
 					pSettings, r_float, "bobbing_effector", "hud_bobbing_vertical", 1.8f);
 
-				if ((mstate & mcAnyMove) &&
+				if (suppress_sprint_bobbing)
+				{
+					// Suppress immediately; the reminder ramps back in after sprint.
+					m_fHudBobbingReminder = 0.f;
+				}
+				else if ((mstate & mcAnyMove) &&
 					!(mstate & (mcJump | mcFall | mcLanding | mcLanding2)))
 				{
 					if (m_fHudBobbingReminder < 1.f)
@@ -225,8 +242,9 @@ void CHudItem::UpdateHudPosition	()
 
 				clamp(m_fHudBobbingReminder, 0.f, 1.f);
 
-				if (!fsimilar(m_fHudBobbingReminder, 0.f))
+				if (!suppress_sprint_bobbing && !fsimilar(m_fHudBobbingReminder, 0.f))
 				{
+					// Keep a time-based fallback available if this animation has no step markers.
 					m_fHudBobbingTime += Device.fTimeDelta;
 
 					const float crouch_factor =
@@ -246,8 +264,45 @@ void CHudItem::UpdateHudPosition	()
 						ST = pSettings->r_float("bobbing_effector", "walk_speed") * HUD_BOB_SPEED * m_fHudBobbingTime * crouch_factor;
 					}
 
-					const float sin_a = _abs(_sin(ST) * A) * m_fHudBobbingReminder;
-					const float cos_a = _cos(ST) * A * m_fHudBobbingReminder;
+					// Phase-lock the normal bobbing oscillator to the animation's step
+					// phase. Never interpolate between two unrelated phases: instead
+					// move the phase offset toward the target at a bounded rate. This
+					// keeps position continuous at sync start/end and across step wraps.
+					float target_phase_offset = 0.f;
+					if (SYNCHRONIZE_BOBBING)
+					{
+						const float step_phase = pActor->get_step_phase();
+						if (step_phase >= 0.f)
+						{
+							const float step_ST = step_phase * PI;
+							float phase_delta = step_ST - ST;
+							while (phase_delta > PI)
+								phase_delta -= 2.f * PI;
+							while (phase_delta < -PI)
+								phase_delta += 2.f * PI;
+							target_phase_offset = phase_delta;
+						}
+					}
+
+					// Exponential phase-offset smoothing, using the same frame-time
+					// based approach as the original reminder ramp. Unlike a fixed-rate
+					// clamp, this does not abruptly stop correcting when the error gets
+					// small. Always take the shortest angular path across +/- PI.
+					float phase_error = target_phase_offset - m_fHudBobbingPhaseOffset;
+					while (phase_error > PI)
+						phase_error -= 2.f * PI;
+					while (phase_error < -PI)
+						phase_error += 2.f * PI;
+					const float phase_smoothing = _min(1.f, Device.fTimeDelta * 8.f);
+					m_fHudBobbingPhaseOffset += phase_error * phase_smoothing;
+					while (m_fHudBobbingPhaseOffset > PI)
+						m_fHudBobbingPhaseOffset -= 2.f * PI;
+					while (m_fHudBobbingPhaseOffset < -PI)
+						m_fHudBobbingPhaseOffset += 2.f * PI;
+
+					const float blended_ST = ST + m_fHudBobbingPhaseOffset;
+					const float sin_a = _abs(_sin(blended_ST) * A) * m_fHudBobbingReminder;
+					const float cos_a = _cos(blended_ST) * A * m_fHudBobbingReminder;
 
 					// trans.j is HUD-up. Invert this term so the weapon/bolt
 					// moves DOWN on the footstep instead of floating upward.

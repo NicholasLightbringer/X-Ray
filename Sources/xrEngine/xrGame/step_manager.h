@@ -16,6 +16,11 @@ class CStepManager {
 	CBlend			*m_blend;
 
 	u32				m_time_anim_started;
+	float			m_last_step_phase;
+	float			m_step_phase_offset;
+	float			m_step_phase_last_output;
+	bool			m_step_phase_initialized;
+	bool			m_step_phase_has_output;
 
 public: 
 						CStepManager			();
@@ -29,6 +34,9 @@ public:
 			void		on_animation_start		(MotionID motion_id, CBlend *blend);
 	// call on updateCL
 			void		update					();
+	// Returns a continuous half-cycle phase: it advances by one between consecutive steps.
+			// Returns -1 when the current animation has no usable step markers.
+			float		get_step_phase			();
 	
 	// process event
 	virtual	void		event_on_step			() {}	

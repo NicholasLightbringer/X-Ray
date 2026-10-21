@@ -11,6 +11,11 @@
 
 CStepManager::CStepManager()
 {
+	m_last_step_phase = 0.f;
+	m_step_phase_offset = 0.f;
+	m_step_phase_initialized = false;
+	m_step_phase_last_output = 0.f;
+	m_step_phase_has_output = false;
 }
 
 CStepManager::~CStepManager()
@@ -75,7 +80,11 @@ void CStepManager::on_animation_start(MotionID motion_id, CBlend *blend)
 	if(m_object->character_ik_controller	())
 		m_object->character_ik_controller	()->PlayLegs(blend);
 
-	m_time_anim_started = Device.dwTimeGlobal; 
+	m_time_anim_started = Device.dwTimeGlobal;
+	m_last_step_phase = 0.f;
+	// Keep the accumulated phase across animation changes. The first sample
+	// of the new animation will be aligned to the previous output below.
+	m_step_phase_initialized = false; 
 	
 	// искать текущую анимацию в STEPS_MAP
 	STEPS_MAP_IT it = m_steps_map.find(motion_id);
@@ -97,6 +106,95 @@ void CStepManager::on_animation_start(MotionID motion_id, CBlend *blend)
 	VERIFY					(m_blend);
 }
 
+
+float CStepManager::get_step_phase()
+{
+	if (m_step_info.disable || !m_blend || m_blend->timeTotal <= EPS || m_step_info.params.cycles == 0)
+		return -1.f;
+
+	// Step markers are stored as normalized times within each animation cycle.
+	// Build their positions over the complete animation and find the interval
+	// containing the current animation time.
+	float markers[MAX_LEGS_COUNT * 255];
+	u32 marker_count = 0;
+	const u32 cycles = m_step_info.params.cycles;
+
+	for (u32 cycle = 0; cycle < cycles; ++cycle)
+	{
+		for (u32 leg = 0; leg < m_legs_count; ++leg)
+		{
+			const float marker = (float(cycle) + m_step_info.params.step[leg].time) / float(cycles);
+			if (marker >= 0.f && marker < 1.f && marker_count < sizeof(markers) / sizeof(markers[0]))
+				markers[marker_count++] = marker;
+		}
+	}
+
+	if (marker_count < 2)
+		return -1.f;
+
+	// Sort the small marker list in ascending order.
+	for (u32 i = 1; i < marker_count; ++i)
+	{
+		const float value = markers[i];
+		u32 j = i;
+		while (j > 0 && markers[j - 1] > value)
+		{
+			markers[j] = markers[j - 1];
+			--j;
+		}
+		markers[j] = value;
+	}
+
+	const float position = fmod(m_blend->timeCurrent, m_blend->timeTotal) / m_blend->timeTotal;
+	if (position < 0.f)
+		return -1.f;
+
+	float previous = markers[marker_count - 1] - 1.f;
+	float next = markers[0] + 1.f;
+	for (u32 i = 0; i < marker_count; ++i)
+	{
+		if (markers[i] <= position)
+			previous = markers[i];
+		if (markers[i] > position)
+		{
+			next = markers[i];
+			break;
+		}
+	}
+
+	const float interval = next - previous;
+	if (interval <= EPS)
+		return -1.f;
+
+	const float local_phase = (position - previous) / interval;
+
+	// Preserve phase across footstep boundaries. Each step interval advances
+	// the phase by one half-cycle (PI radians), so position/rotation remain
+	// continuous when the local phase wraps from 1 back to 0.
+	if (!m_step_phase_initialized)
+	{
+		// A new locomotion animation may start at an arbitrary point in its
+		// cycle. Align its phase to the previous output instead of resetting the
+		// HUD phase at the animation boundary. Use even cycle offsets because
+		// the HUD oscillator maps one phase unit to PI radians.
+		if (m_step_phase_has_output)
+			m_step_phase_offset = 2.f * floorf((m_step_phase_last_output - local_phase) * 0.5f + 0.5f);
+		else
+			m_step_phase_offset = 0.f;
+		m_last_step_phase = local_phase;
+		m_step_phase_initialized = true;
+	}
+	else
+	{
+		if (local_phase + 0.5f < m_last_step_phase)
+			m_step_phase_offset += 1.f;
+		m_last_step_phase = local_phase;
+	}
+
+	m_step_phase_last_output = m_step_phase_offset + local_phase;
+	m_step_phase_has_output = true;
+	return m_step_phase_last_output;
+}
 
 void CStepManager::update()
 {

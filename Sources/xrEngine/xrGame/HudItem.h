@@ -115,6 +115,7 @@ protected:
 	void					StopHudInertion();
 	float m_fHudBobbingTime;
 	float m_fHudBobbingReminder;
+	float m_fHudBobbingPhaseOffset;
 
 	float m_fHudJumpEffectTime;
 	float m_fHudLandingEffectTime;
