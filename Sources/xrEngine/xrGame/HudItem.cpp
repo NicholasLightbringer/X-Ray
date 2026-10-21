@@ -293,7 +293,7 @@ void CHudItem::UpdateHudPosition	()
 						phase_error -= 2.f * PI;
 					while (phase_error < -PI)
 						phase_error += 2.f * PI;
-					const float phase_smoothing = _min(1.f, Device.fTimeDelta * 8.f);
+					const float phase_smoothing = _min(1.f, Device.fTimeDelta * 5.f);
 					m_fHudBobbingPhaseOffset += phase_error * phase_smoothing;
 					while (m_fHudBobbingPhaseOffset > PI)
 						m_fHudBobbingPhaseOffset -= 2.f * PI;
