@@ -137,10 +137,34 @@ void CDetailManager::hw_Render()
 {
 	// Render-prepare
 	Fvector4	dir1,dir2;
-	float		tm_rot1		= (PI_MUL_2*Device.fTimeGlobal/swing_current.rot1);
-	float		tm_rot2		= (PI_MUL_2*Device.fTimeGlobal/swing_current.rot2);
-	dir1.set				(_sin(tm_rot1),0,_cos(tm_rot1),0).normalize().mul(swing_current.amp1);
-	dir2.set				(_sin(tm_rot2),0,_cos(tm_rot2),0).normalize().mul(swing_current.amp2);
+	// Read weather wind before calculating both motion phases.
+	// CurrentEnv.wind_direction is already in radians.
+	CEnvDescriptor& env = g_pGamePersistent->Environment().CurrentEnv;
+	// Compress the response so wind_velocity=20 has the same motion response
+	// that wind_velocity=1.5 had before this change.
+	float wind_velocity = _max(env.wind_velocity, 0.f);
+	float effective_wind_velocity = wind_velocity * (1.5f / 20.f);
+	float wind_speed = clampr(effective_wind_velocity / 0.2f, 0.f, 1.f);
+	float wind_blend = 0.175f * wind_speed; // Half-strength weather-direction influence.
+	// Standard amplitude at zero wind; amplitude grows with effective wind.
+	float wind_scale = 1.f + 0.5f * effective_wind_velocity; // Half the wind-driven amplitude increase.
+	float wind_motion_factor = 1.f + 0.25f * effective_wind_velocity; // Half the wind-driven speed increase.
+	float tm_rot1 = (PI_MUL_2 * Device.fTimeGlobal / swing_current.rot1) * wind_motion_factor;
+	float tm_rot2 = (PI_MUL_2 * Device.fTimeGlobal / swing_current.rot2) * wind_motion_factor;
+	float wind_motion_speed = swing_current.speed * wind_motion_factor;
+	float wind_x = _sin(env.wind_direction);
+	float wind_z = _cos(env.wind_direction);
+
+	float d1x = (1.f - wind_blend) * _sin(tm_rot1) + wind_blend * wind_x;
+	float d1z = (1.f - wind_blend) * _cos(tm_rot1) + wind_blend * wind_z;
+	float d2x = (1.f - wind_blend) * _sin(tm_rot2) + wind_blend * wind_x;
+	float d2z = (1.f - wind_blend) * _cos(tm_rot2) + wind_blend * wind_z;
+	float d1len = _sqrt(d1x*d1x + d1z*d1z);
+	float d2len = _sqrt(d2x*d2x + d2z*d2z);
+	if (d1len < 0.001f) { d1x = wind_x; d1z = wind_z; d1len = 1.f; }
+	if (d2len < 0.001f) { d2x = wind_x; d2z = wind_z; d2len = 1.f; }
+	dir1.set(d1x / d1len, 0.f, d1z / d1len, 0.f).mul(swing_current.amp1 * wind_scale);
+	dir2.set(d2x / d2len, 0.f, d2z / d2len, 0.f).mul(swing_current.amp2 * wind_scale);
 
 	// Setup geometry and DMA
 	RCache.set_Geometry		(hw_Geom);
@@ -148,14 +172,14 @@ void CDetailManager::hw_Render()
 	// Wave0
 	float		scale			=	1.f/float(quant);
 	Fvector4	wave;
-	wave.set				(1.f/5.f,		1.f/7.f,	1.f/3.f,	Device.fTimeGlobal*swing_current.speed);
+	wave.set				(1.f/5.f,		1.f/7.f,	1.f/3.f,	Device.fTimeGlobal*wind_motion_speed);
 	RCache.set_c			(&*hwc_consts,	scale,		scale,		ps_r__Detail_l_aniso,	ps_r__Detail_l_ambient);				// consts
 	RCache.set_c			(&*hwc_wave,	wave.div(PI_MUL_2));	// wave
 	RCache.set_c			(&*hwc_wind,	dir1);																					// wind-dir
 	hw_Render_dump			(&*hwc_array,	1, 0, c_hdr );
 
 	// Wave1
-	wave.set				(1.f/3.f,		1.f/7.f,	1.f/5.f,	Device.fTimeGlobal*swing_current.speed);
+	wave.set				(1.f/3.f,		1.f/7.f,	1.f/5.f,	Device.fTimeGlobal*wind_motion_speed);
 	RCache.set_c			(&*hwc_wave,	wave.div(PI_MUL_2));	// wave
 	RCache.set_c			(&*hwc_wind,	dir2);																					// wind-dir
 	hw_Render_dump			(&*hwc_array,	2, 0, c_hdr );

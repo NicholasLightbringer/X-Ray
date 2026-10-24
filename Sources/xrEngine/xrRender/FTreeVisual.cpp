@@ -101,13 +101,31 @@ struct	FTreeVisual_setup
 	{
 		dwFrame					= Device.dwFrame;
 
-		// Calc wind-vector3, scale
-		float	tm_rot			= PI_MUL_2*Device.fTimeGlobal/ps_r__Tree_w_rot;
-		wind.set				(_sin(tm_rot),0,_cos(tm_rot),0);	wind.normalize	();	wind.mul(ps_r__Tree_w_amp);	// dir1*amplitude
-		scale					= 1.f/float(FTreeVisual_quant);
+		// Map wind_velocity=20 to the former response at wind_velocity=1.5.
+		// At zero wind, original tree motion and amplitude remain unchanged.
+		CEnvDescriptor& env = g_pGamePersistent->Environment().CurrentEnv;
+		float wind_velocity = _max(env.wind_velocity, 0.f);
+		float effective_wind_velocity = wind_velocity * (1.5f / 20.f);
+		float tree_motion_factor = 1.f + effective_wind_velocity;
+		float tm_rot = PI_MUL_2 * Device.fTimeGlobal * tree_motion_factor / ps_r__Tree_w_rot;
+		float tree_x = _sin(tm_rot);
+		float tree_z = _cos(tm_rot);
 
-		// setup constants
-		wave.set				(ps_r__Tree_Wave.x,	ps_r__Tree_Wave.y,	ps_r__Tree_Wave.z,	Device.fTimeGlobal*ps_r__Tree_w_speed);			// wave
+		// Gently bias the original rotating tree-wind direction toward weather direction.
+		// Do not scale ps_r__Tree_w_amp: the original sway intensity is preserved.
+		float wind_direction_factor = 0.175f * clampr(effective_wind_velocity / 0.2f, 0.f, 1.f);
+		float weather_x = _sin(env.wind_direction);
+		float weather_z = _cos(env.wind_direction);
+		tree_x = (1.f - wind_direction_factor) * tree_x + wind_direction_factor * weather_x;
+		tree_z = (1.f - wind_direction_factor) * tree_z + wind_direction_factor * weather_z;
+		float tree_dir_len = _sqrt(tree_x * tree_x + tree_z * tree_z);
+		if (tree_dir_len > 0.001f) { tree_x /= tree_dir_len; tree_z /= tree_dir_len; }
+		wind.set(tree_x, 0.f, tree_z, 0.f);
+		wind.mul(ps_r__Tree_w_amp * (1.f + 0.85f * effective_wind_velocity)); // Standard amplitude at zero wind; grows with wind.
+		scale = 1.f/float(FTreeVisual_quant);
+
+		// Weather wind changes the wave rate at half the grass response.
+		wave.set(ps_r__Tree_Wave.x * 0.35f, ps_r__Tree_Wave.y * 0.35f, ps_r__Tree_Wave.z * 0.35f, Device.fTimeGlobal * ps_r__Tree_w_speed * tree_motion_factor);
 		wave.div				(PI_MUL_2);
 	}
 };

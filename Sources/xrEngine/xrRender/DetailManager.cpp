@@ -282,6 +282,11 @@ void CDetailManager::Render	()
 
 	float factor			= g_pGamePersistent->Environment().wind_strength_factor;
 	swing_current.lerp		(swing_desc[0],swing_desc[1],factor);
+	// Further synchronize grass motion: retain only 1% of the
+	// normal-to-fast descriptor variation for speed and rotation periods.
+	swing_current.speed = swing_desc[0].speed + (swing_current.speed - swing_desc[0].speed) * 0.01f;
+	swing_current.rot1 = swing_desc[0].rot1 + (swing_current.rot1 - swing_desc[0].rot1) * 0.01f;
+	swing_current.rot2 = swing_desc[0].rot2 + (swing_current.rot2 - swing_desc[0].rot2) * 0.01f;
 
 	RCache.set_CullMode		(CULL_NONE);
 	RCache.set_xform_world	(Fidentity);
