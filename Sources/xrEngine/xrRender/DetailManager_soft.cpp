@@ -2,6 +2,7 @@
 #pragma hdrstop
 
 #include "detailmanager.h"
+#include "xrRender_console.h"
 
 const u32	vs_size				= 3000;
 
@@ -75,10 +76,25 @@ void CDetailManager::soft_Render	()
 
 					// Build matrix
 					Fmatrix& M = Instance.mRotY;
-					mXform._11=M._11*scale;	mXform._12=M._12*scale;	mXform._13=M._13*scale;	mXform._14=M._14;
-					mXform._21=M._21*scale;	mXform._22=M._22*scale;	mXform._23=M._23*scale;	mXform._24=M._24;
-					mXform._31=M._31*scale;	mXform._32=M._32*scale;	mXform._33=M._33*scale;	mXform._34=M._34;
-					mXform._41=M._41;		mXform._42=M._42;		mXform._43=M._43;		mXform._44=1;
+					mXform._11 = M._11 * scale * ps_r__Detail_height;
+					mXform._12 = M._12 * scale * ps_r__Detail_height;
+					mXform._13 = M._13 * scale * ps_r__Detail_height;
+					mXform._14 = M._14;
+
+					mXform._21 = M._21 * scale * ps_r__Detail_height;
+					mXform._22 = M._22 * scale * ps_r__Detail_height;
+					mXform._23 = M._23 * scale * ps_r__Detail_height;
+					mXform._24 = M._24;
+
+					mXform._31 = M._31 * scale * ps_r__Detail_height;
+					mXform._32 = M._32 * scale * ps_r__Detail_height;
+					mXform._33 = M._33 * scale * ps_r__Detail_height;
+					mXform._34 = M._34;
+
+					mXform._41 = M._41;
+					mXform._42 = M._42;
+					mXform._43 = M._43;
+					mXform._44 = 1;
 
 					// Transfer vertices
 					{
