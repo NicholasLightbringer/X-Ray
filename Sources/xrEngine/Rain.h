@@ -62,7 +62,9 @@ private:
 
 	// Sounds
 	ref_sound						snd_Ambient;
-
+	ref_sound						snd_AmbientInside;
+	float						inside_mix;
+	BOOL						under_roof;
 	// Utilities
 	void							p_create		();
 	void							p_destroy		();

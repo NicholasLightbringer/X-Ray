@@ -38,8 +38,11 @@ const float particles_time		= .3f;
 CEffect_Rain::CEffect_Rain()
 {
 	state							= stIdle;
+	under_roof					= FALSE;
 	
 	snd_Ambient.create				("ambient\\rain",st_Effect,sg_Undefined);
+	snd_AmbientInside.create		("ambient\\rain_inside",st_Effect,sg_Undefined);
+	inside_mix					= 0.f;
 
 	IReader*	F					= FS.r_open("$game_meshes$","dm\\rain.dm"); 
 	VERIFY3							(F,"Can't open file.","dm\\rain.dm");
@@ -56,6 +59,7 @@ CEffect_Rain::CEffect_Rain()
 CEffect_Rain::~CEffect_Rain()
 {
 	snd_Ambient.destroy				();
+	snd_AmbientInside.destroy		();
 
 	// Cleanup
 	p_destroy						();
@@ -135,23 +139,50 @@ void	CEffect_Rain::OnFrame	()
 		if (factor<EPS_L)		return;
 		state					= stWorking;
 		snd_Ambient.play		(0,sm_Looped);
-		snd_Ambient.set_range	(source_offset,source_offset*2.f);
+		snd_AmbientInside.play	(0,sm_Looped);
+		snd_Ambient.set_range	(source_offset*2.f,source_offset*4.f);
+		snd_AmbientInside.set_range(2.f,25.f);
 	break;
 	case stWorking:
 		if (factor<EPS_L){
 			state				= stIdle;
 			snd_Ambient.stop	();
+			snd_AmbientInside.stop();
+			inside_mix = 0.f;
 			return;
 		}
 		break;
 	}
 
-	// ambient sound
+	// Detect a solid obstruction directly above the camera (roof/overhang).
+	// Start slightly above the camera to avoid touching the floor or player geometry.	
+#ifndef _EDITOR
+	under_roof = FALSE;
+	if (g_pGameLevel)
+	{
+		Fvector ray_start = Device.vCameraPosition;
+		ray_start.y += 0.35f;
+		Fvector ray_dir;
+		ray_dir.set(0.f, 1.f, 0.f);
+		float ray_range = 3.5f;
+		under_roof = RayPick(ray_start, ray_dir, ray_range, collide::rqtBoth);
+	}
+#endif
+
+	// Smoothly crossfade between outdoor rain and rain hitting a roof.
+	float target_inside = under_roof ? 1.f : 0.f;
+	float blend_step = Device.fTimeDelta * 1.5f;
+	if (inside_mix < target_inside) inside_mix = _min(target_inside, inside_mix + blend_step);
+	else if (inside_mix > target_inside) inside_mix = _max(target_inside, inside_mix - blend_step);
 	if (snd_Ambient._feedback()){
-		Fvector					sndP;
-		sndP.mad				(Device.vCameraPosition,Fvector().set(0,1,0),source_offset);
+		Fvector sndP;
+		sndP.mad(Device.vCameraPosition,Fvector().set(0,1,0),source_offset);
 		snd_Ambient.set_position(sndP);
-		snd_Ambient.set_volume	(1.1f*factor*hemi_factor);
+		snd_Ambient.set_volume(1.1f*factor*hemi_factor*(1.f-inside_mix));
+	}
+	if (snd_AmbientInside._feedback()){
+		snd_AmbientInside.set_position(Device.vCameraPosition);
+		snd_AmbientInside.set_volume(1.1f*factor*hemi_factor*inside_mix);
 	}
 }
 
@@ -199,7 +230,7 @@ void	CEffect_Rain::Render	()
 		if (one.dwTime_Hit<Device.dwTimeGlobal)		Hit (one.Phit);
 		if (one.dwTime_Life<Device.dwTimeGlobal)	Born(one,source_radius);
 
-// последняя дельта ??
+// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ ??
 //.		float xdt		= float(one.dwTime_Hit-Device.dwTimeGlobal)/1000.f;
 //.		float dt		= Device.fTimeDelta;//xdt<Device.fTimeDelta?xdt:Device.fTimeDelta;
 		float dt		= Device.fTimeDelta;
