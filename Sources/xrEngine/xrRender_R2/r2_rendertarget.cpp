@@ -237,6 +237,18 @@ CRenderTarget::CRenderTarget		()
 		// generic(LDR) RTs
 		rt_Generic_0.create			(r2_RT_generic0,w,h,D3DFMT_A8R8G8B8		);
 		rt_Generic_1.create			(r2_RT_generic1,w,h,D3DFMT_A8R8G8B8		);
+
+		// Planar reflection uses its own G-buffer so the main scene buffers remain intact.
+		rt_WaterReflection.create			(r2_RT_water_reflection,w,h,D3DFMT_A8R8G8B8);
+		rt_WaterReflectionPosition.create	(r2_RT_water_reflection_pos,w,h,rt_Position->fmt);
+		rt_WaterReflectionNormal.create	(r2_RT_water_reflection_normal,w,h,rt_Normal->fmt);
+		D3DFORMAT reflection_raw_format = RImplementation.o.albedo_wo ? rt_Accumulator->fmt : rt_Color->fmt;
+		rt_WaterReflectionRaw.create		(r2_RT_water_reflection_raw,w,h,reflection_raw_format);
+		rt_WaterReflectionZB = NULL;
+		D3DSURFACE_DESC reflection_zb_desc;
+		R_CHK(HW.pBaseZB->GetDesc(&reflection_zb_desc));
+		R_CHK(HW.pDevice->CreateDepthStencilSurface(w,h,reflection_zb_desc.Format,D3DMULTISAMPLE_NONE,0,TRUE,&rt_WaterReflectionZB,NULL));
+		s_water_reflection_copy.create	("effects\\screen_set",r2_RT_water_reflection_raw);
 	}
 
 	// OCCLUSION
@@ -483,6 +495,7 @@ CRenderTarget::~CRenderTarget	()
 	t_envmap_1.destroy			();
 
 	_RELEASE					(rt_smap_ZB);
+	_RELEASE						(rt_WaterReflectionZB);
 
 	// Jitter
 	for (int it=0; it<TEX_jitter_count; it++)	{

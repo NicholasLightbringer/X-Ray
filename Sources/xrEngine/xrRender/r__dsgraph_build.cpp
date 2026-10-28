@@ -11,6 +11,23 @@
 
 using	namespace R_dsgraph;
 
+#if RENDER==R_R2
+static bool r2_is_water_visual_for_reflection(IRender_Visual* V)
+{
+	if (!V || !V->shader) return false;
+	ShaderElement* E = V->shader->E[SE_R2_NORMAL_HQ]._get();
+	if (!E) return false;
+	for (u32 i=0; i<E->passes.size(); ++i) {
+		SPass* P = E->passes[i]._get();
+		if (P && P->vs) {
+			LPCSTR name = P->vs->cName.c_str();
+			if (name && strstr(name,"water")) return true;
+		}
+	}
+	return false;
+}
+#endif
+
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Scene graph actual insertion and sorting ////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -519,11 +536,36 @@ BOOL CRender::add_Dynamic(IRender_Visual *pVisual, u32 planes)
 void CRender::add_Static(IRender_Visual *pVisual, u32 planes)
 {
 	// Check frustum visibility and calculate distance to visual's center
+#if RENDER==R_R2
+	// Water's forward shader cannot be written to the deferred MRTs; avoid recursive water.
+	if (RImplementation.bRenderingReflection && r2_is_water_visual_for_reflection(pVisual)) return;
+#endif
 	EFC_Visible	VIS;
 	vis_data&	vis			= pVisual->vis;
+	// Collect candidate water planes before frustum/HOM rejection. Water may be
+	// outside the current view or temporarily occluded while its reflection is
+	// still needed; losing its height invalidates the reflection pass and flickers.
+#if RENDER==R_R2
+	if (!RImplementation.bRenderingReflection && RImplementation.phase==CRender::PHASE_NORMAL &&
+		r2_is_water_visual_for_reflection(pVisual)) {
+		float waterMin = vis.box.min.y;
+		float waterMax = vis.box.max.y;
+		if (waterMax-waterMin <= 2.f) {
+			float waterY = (waterMin+waterMax)*0.5f;
+			bool duplicate = false;
+			for (u32 wi=0; wi<RImplementation.WaterReflectionHeights.size(); ++wi)
+				if (_abs(RImplementation.WaterReflectionHeights[wi]-waterY) < 0.1f) { duplicate = true; break; }
+			if (!duplicate) RImplementation.WaterReflectionHeights.push_back(waterY);
+		}
+	}
+#endif
 	VIS = View->testSAABB	(vis.sphere.P,vis.sphere.R,vis.box.data(),planes);
 	if (fcvNone==VIS)		return;
-	if (!HOM.visible(vis))	return;
+#if RENDER==R_R2
+	if (!RImplementation.bRenderingReflection && !HOM.visible(vis)) return;
+#else
+	if (!HOM.visible(vis)) return;
+#endif
 
 	// If we get here visual is visible or partially visible
 	xr_vector<IRender_Visual*>::iterator I,E;	// it may be usefull for 'hierrarhy' visuals

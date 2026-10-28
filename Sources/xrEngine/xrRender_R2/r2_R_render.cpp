@@ -22,7 +22,7 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 		//!!! BECAUSE OF PARALLEL HOM RENDERING TRY TO DELAY ACCESS TO HOM AS MUCH AS POSSIBLE
 		//!!!
 		{
-			// Traverse object database
+			// Traverse object database for main and reflected views
 			g_SpatialSpace->q_frustum
 				(
 				lstRenderables,
@@ -37,7 +37,7 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 			// Determine visibility for dynamic part of scene
 			set_Object							(0);
 			u32 uID_LTRACK						= 0xffffffff;
-			if (phase==PHASE_NORMAL)			{
+			if (!bRenderingReflection && phase==PHASE_NORMAL)			{
 				uLastLTRACK	++;
 				if (lstRenderables.size())		uID_LTRACK	= uLastLTRACK%lstRenderables.size();
 
@@ -67,7 +67,7 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 			ViewBase,
 			Device.vCameraPosition,
 			m_ViewProjection,
-			CPortalTraverser::VQ_HOM + CPortalTraverser::VQ_SSA + CPortalTraverser::VQ_FADE
+			(bRenderingReflection ? (CPortalTraverser::VQ_SSA + CPortalTraverser::VQ_FADE) : (CPortalTraverser::VQ_HOM + CPortalTraverser::VQ_SSA + CPortalTraverser::VQ_FADE))
 			//. disabled scissoring (HW.Caps.bScissor?CPortalTraverser::VQ_SCISSOR:0)	// generate scissoring info
 			);
 
@@ -82,6 +82,8 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 			}
 		}
 
+		// Traverse dynamic renderables for reflected camera too; main-camera HOM is invalid here.
+		{
 		// Traverse frustums
 		for (u32 o_it=0; o_it<lstRenderables.size(); o_it++)
 		{
@@ -90,6 +92,7 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 			if	(0==sector)										continue;	// disassociated from S/P structure
 
 			if (spatial->spatial.type & STYPE_LIGHTSOURCE)		{
+				if (bRenderingReflection) continue; // no light collection in reflection pass
 				// lightsource
 				light*			L				= (light*)	(spatial->dcast_Light());
 				VERIFY							(L);
@@ -116,7 +119,7 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 					vis_data&		v_orig			= renderable->renderable.visual->vis;
 					vis_data		v_copy			= v_orig;
 					v_copy.box.xform				(renderable->renderable.xform);
-					BOOL			bVisible		= HOM.visible(v_copy);
+					BOOL			bVisible		= bRenderingReflection ? TRUE : HOM.visible(v_copy);
 					v_orig.marker					= v_copy.marker;
 					v_orig.accept_frame				= v_copy.accept_frame;
 					v_orig.hom_frame				= v_copy.hom_frame;
@@ -131,13 +134,155 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 				break;	// exit loop on frustums
 			}
 		}
-		if (g_pGameLevel && (phase==PHASE_NORMAL))	g_pGameLevel->pHUD->Render_Last();		// HUD
+		}
+		if (!bRenderingReflection && g_pGameLevel && (phase==PHASE_NORMAL))	g_pGameLevel->pHUD->Render_Last();		// HUD
 	}
 	else
 	{
 		set_Object									(0);
-		if (g_pGameLevel && (phase==PHASE_NORMAL))	g_pGameLevel->pHUD->Render_Last();		// HUD
+		if (!bRenderingReflection && g_pGameLevel && (phase==PHASE_NORMAL))	g_pGameLevel->pHUD->Render_Last();		// HUD
 	}
+}
+
+void CRender::render_water_reflection()
+{
+	// Keep the previous plane as a short-term anchor. The water candidate list is
+	// rebuilt from the current visibility traversal and can briefly change while
+	// turning the camera, which otherwise causes a one-frame reflection jump.
+	BOOL previousPlaneKnown = bWaterReflectionPlaneKnown;
+	float previousWaterHeight = mWaterReflectionHeight;
+	// The reflection may be temporarily unavailable while the camera is underwater
+	// or the water plane drops out of the visibility list. Keep the last known plane
+	// separately from per-frame texture validity so we can reacquire it on return.
+	bWaterReflectionValid = FALSE;
+	if (!Target || bRenderingReflection || !pLastSector) return;
+	if (!HW.Caps.geometry.dwClipPlanes) return;
+	// Do not replace the remembered surface with a lower water body while the
+	// camera is below the last valid surface. The renderer has one planar capture;
+	// switching to another level here leaves the water shader projecting against
+	// the wrong plane after the camera comes back up.
+	if (previousPlaneKnown && Device.vCameraPosition.y <= previousWaterHeight + 0.1f) return;
+
+	// A single planar texture represents one horizontal water level. Prefer the
+	// closest level beneath the camera, but add a small hysteresis to avoid
+	// switching planes for tiny visibility-list changes.
+	float waterHeight = 0.f;
+	float nearest = flt_max;
+	bool found = false;
+	for (u32 i=0; i<WaterReflectionHeights.size(); ++i) {
+		float h = WaterReflectionHeights[i];
+		if (h >= Device.vCameraPosition.y-0.1f) continue;
+		float d = Device.vCameraPosition.y-h;
+		if (d < nearest) { nearest=d; waterHeight=h; found=true; }
+	}
+	if (previousPlaneKnown && previousWaterHeight < Device.vCameraPosition.y-0.1f) {
+		float previousDistance = Device.vCameraPosition.y-previousWaterHeight;
+		// Reuse the last plane if it is still reasonably close and the newly
+		// selected plane is not clearly closer. Also bridge an empty candidate frame.
+		if (previousDistance < 80.f && (!found || previousDistance <= nearest+1.5f)) {
+			waterHeight = previousWaterHeight;
+			found = true;
+		}
+	}
+	if (!found) return;
+
+	Fmatrix oldDeviceView = Device.mView;
+	Fmatrix oldProject = Device.mProject;
+	Fmatrix oldFull = Device.mFullTransform;
+	Fvector oldPosition = Device.vCameraPosition;
+	Fvector oldDirection = Device.vCameraDirection;
+	Fvector oldTop = Device.vCameraTop;
+	Fvector oldRight = Device.vCameraRight;
+	CFrustum oldViewBase = ViewBase;
+	CFrustum* oldViewFrustum = View;
+	CSector* oldSector = pLastSector;
+	u32 oldPhase = phase;
+	bool oldMask0 = pmask[0], oldMask1 = pmask[1], oldMaskWmark = pmask_wmark;
+	IRenderable* oldObject = val_pObject;
+	Fmatrix* oldTransform = val_pTransform;
+	BOOL oldHUD = val_bHUD;
+	BOOL oldInvisible = val_bInvisible;
+	BOOL oldRecordMP = val_bRecordMP;
+	xr_vector<Fbox3,render_alloc<Fbox3> >* oldRecorder = val_recorder;
+	R_feedback* oldFeedback = val_feedback;
+	u32 oldFeedbackBreak = val_feedback_breakp;
+
+	Fmatrix mirror;
+	mirror.identity();
+	mirror._22 = -1.f;
+	mirror._42 = 2.f*waterHeight;
+
+	mWaterReflectionVP.identity();
+	Device.vCameraPosition.set(oldPosition.x,2.f*waterHeight-oldPosition.y,oldPosition.z);
+	mirror.transform_dir(Device.vCameraDirection,oldDirection);
+	mirror.transform_dir(Device.vCameraTop,oldTop);
+	mirror.transform_dir(Device.vCameraRight,oldRight);
+	Device.mView.mul(oldDeviceView,mirror); // mirror world coordinates, then apply original view
+	Device.mFullTransform.mul(Device.mProject,Device.mView);
+	mWaterReflectionVP.set(Device.mFullTransform);
+	RCache.set_xform_view(Device.mView);
+	RCache.set_xform_project(Device.mProject);
+	ViewBase.CreateFromMatrix(Device.mFullTransform,FRUSTUM_P_LRTB+FRUSTUM_P_FAR);
+	View = &ViewBase;
+	Fvector sectorDirection = Device.vCameraDirection;
+	CSector* reflectedSector = (CSector*)detectSector(Device.vCameraPosition,sectorDirection);
+	pLastSector = reflectedSector ? reflectedSector : oldSector;
+
+	Fplane waterClip;
+	waterClip.n.set(0.f,-1.f,0.f);
+	waterClip.d = waterHeight;
+	RCache.set_ClipPlanes(TRUE,&waterClip,1);
+
+	bRenderingReflection = TRUE;
+	phase = PHASE_NORMAL;
+	r_pmask(true,false,false);
+	set_Object(0);
+	val_bHUD = FALSE;
+	val_bInvisible = FALSE;
+	val_bRecordMP = FALSE;
+	val_recorder = NULL;
+
+	render_main(Device.mFullTransform,true);
+	Target->phase_scene_begin();
+	r_dsgraph_render_graph(0);
+	r_dsgraph_render_lods(true,true);
+	if (Details) Details->Render();
+	// Geometry pass is complete. Disable the user plane before the full-screen resolve.
+	RCache.set_ClipPlanes(FALSE, (Fplane*)NULL, 0);
+	Target->phase_scene_end();
+
+	bRenderingReflection = FALSE;
+	RCache.set_CullMode(CULL_CCW);
+	RCache.set_Stencil(FALSE);
+	Device.mView.set(oldDeviceView);
+	Device.mProject.set(oldProject);
+	Device.mFullTransform.set(oldFull);
+	Device.vCameraPosition.set(oldPosition);
+	Device.vCameraDirection.set(oldDirection);
+	Device.vCameraTop.set(oldTop);
+	Device.vCameraRight.set(oldRight);
+	ViewBase = oldViewBase;
+	View = oldViewFrustum;
+	pLastSector = oldSector;
+	phase = oldPhase;
+	r_pmask(oldMask0,oldMask1,oldMaskWmark);
+	val_pObject = oldObject;
+	val_pTransform = oldTransform;
+	val_bHUD = oldHUD;
+	val_bInvisible = oldInvisible;
+	val_bRecordMP = oldRecordMP;
+	val_recorder = oldRecorder;
+	val_feedback = oldFeedback;
+	val_feedback_breakp = oldFeedbackBreak;
+	// Commit the plane only after the reflection pass completed and camera state
+	// was restored. Failed/skipped underwater passes must not poison plane memory.
+	mWaterReflectionHeight = waterHeight;
+	bWaterReflectionPlaneKnown = TRUE;
+	RCache.set_xform_view(Device.mView);
+	RCache.set_xform_project(Device.mProject);
+	RCache.set_xform_world(Fidentity);
+	rmNormal();
+	bWaterReflectionValid = TRUE;
 }
 
 void CRender::render_menu	()
@@ -265,6 +410,7 @@ void CRender::Render		()
 	if (bSUN)									set_Recorder	(&main_coarse_structure);
 	else										set_Recorder	(NULL);
 	phase										= PHASE_NORMAL;
+	WaterReflectionHeights.clear();
 	render_main									(Device.mFullTransform,true);
 	set_Recorder								(NULL);
 	r_pmask										(true,false);	// disable priority "1"
@@ -355,6 +501,9 @@ void CRender::Render		()
 		if(Details)	Details->Render				();
 		Target->phase_scene_end					();
 	}
+
+	// Render a separate mirror-camera pass after the main scene G-buffer is complete.
+	render_water_reflection();
 
 	// Wall marks
 	if(Wallmarks)	{

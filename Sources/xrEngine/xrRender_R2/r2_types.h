@@ -19,6 +19,12 @@
 #define		r2_RT_generic0		"$user$generic0"		// ---
 #define		r2_RT_generic1		"$user$generic1"		// ---
 
+// Planar water reflection targets
+#define		r2_RT_water_reflection		"$user$water_reflection"
+#define		r2_RT_water_reflection_pos	"$user$water_reflection_pos"
+#define		r2_RT_water_reflection_normal	"$user$water_reflection_normal"
+#define		r2_RT_water_reflection_raw	"$user$water_reflection_raw"
+
 #define		r2_RT_bloom1		"$user$bloom1"			// ---
 #define		r2_RT_bloom2		"$user$bloom2"			// ---
 

@@ -46,6 +46,13 @@ public:
 	ref_rt						rt_Accumulator_temp;// only for HW which doesn't feature fp16 blend
 	ref_rt						rt_Generic_0;		// 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
 	ref_rt						rt_Generic_1;		// 32bit		(r,g,b,a)				// post-process, intermidiate results, etc.
+
+	// Dedicated reflection G-buffer; kept separate from the main scene buffers.
+	ref_rt						rt_WaterReflection;		// resolved LDR reflection image sampled by water
+	ref_rt						rt_WaterReflectionPosition;
+	ref_rt						rt_WaterReflectionNormal;
+	ref_rt						rt_WaterReflectionRaw;
+	IDirect3DSurface9*						rt_WaterReflectionZB;
 	ref_rt						rt_Bloom_1;			// 32bit, dim/4	(r,g,b,?)
 	ref_rt						rt_Bloom_2;			// 32bit, dim/4	(r,g,b,?)
 	ref_rt						rt_LUM_64;			// 64bit, 64x64,	log-average in all components
@@ -115,6 +122,7 @@ private:
 	ref_shader					s_combine_dbg_0;
 	ref_shader					s_combine_dbg_1;
 	ref_shader					s_combine_dbg_Accumulator;
+	ref_shader						s_water_reflection_copy;
 	ref_shader					s_combine;
 public:
 	ref_shader					s_postprocess;
@@ -160,6 +168,7 @@ public:
 	void						phase_scene_prepare		();
 	void						phase_scene_begin		();
 	void						phase_scene_end			();
+	void					phase_water_reflection_copy();
 	void						phase_occq				();
 	void						phase_wallmarks			();
 	void						phase_smap_direct		(light* L,	u32 sub_phase);

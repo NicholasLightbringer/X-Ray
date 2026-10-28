@@ -10,6 +10,14 @@
 
 CRender										RImplementation;
 
+
+// The water shader constants are updated from the current reflected camera each frame.
+static class cl_water_reflection_vp : public R_constant_setup {
+	virtual void setup(R_constant* C) { RCache.set_c(C,RImplementation.mWaterReflectionVP); }
+} binder_water_reflection_vp;
+static class cl_water_reflection_params : public R_constant_setup {
+	virtual void setup(R_constant* C) { RCache.set_c(C,RImplementation.bWaterReflectionValid ? 1.f : 0.f,RImplementation.mWaterReflectionHeight,1.0f,0.f); }
+} binder_water_reflection_params;
 //////////////////////////////////////////////////////////////////////////
 class CGlow				: public IRender_Glow
 {
@@ -205,6 +213,12 @@ void					CRender::create					()
 
 	// constants
 	::Device.Resources->RegisterConstantSetup	("parallax",	&binder_parallax);
+	static BOOL water_reflection_constants_registered = FALSE;
+	if (!water_reflection_constants_registered) {
+		::Device.Resources->RegisterConstantSetup("m_water_reflectionVP",&binder_water_reflection_vp);
+		::Device.Resources->RegisterConstantSetup("water_reflection_params",&binder_water_reflection_params);
+		water_reflection_constants_registered = TRUE;
+	}
 
 	c_lmaterial					= "L_material";
 	c_sbase						= "s_base";
@@ -417,6 +431,11 @@ void					CRender::rmNormal			()
 //////////////////////////////////////////////////////////////////////
 CRender::CRender()
 {
+	bRenderingReflection = FALSE;
+	bWaterReflectionValid = FALSE;
+	bWaterReflectionPlaneKnown = FALSE;
+	mWaterReflectionVP.identity();
+	mWaterReflectionHeight = 0.f;
 }
 
 CRender::~CRender()

@@ -78,6 +78,13 @@ public:
 public:
 	// Sector detection and visibility
 	CSector*													pLastSector;
+	// Planar water reflection pass state (R2).
+	xr_vector<float>						WaterReflectionHeights;
+	BOOL									bRenderingReflection;
+	BOOL									bWaterReflectionValid;
+	BOOL									bWaterReflectionPlaneKnown;
+	Fmatrix									mWaterReflectionVP;
+	float									mWaterReflectionHeight;
 	Fvector														vLastCameraPos;
 	u32															uLastLTRACK;
 	xr_vector<IRender_Portal*>									Portals;
@@ -135,6 +142,7 @@ private:
 public:
 	IRender_Sector*					rimp_detectSector			(Fvector& P, Fvector& D);
 	void							render_main					(Fmatrix& mCombined, bool _fportals);
+	void						render_water_reflection		();
 	void							render_forward				();
 	void							render_smap_direct			(Fmatrix& mCombined);
 	void							render_indirect				(light*			L	);
