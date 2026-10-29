@@ -4,6 +4,15 @@
 #include	"xrRender_console.h"
 
 u32			ps_Preset				=	2	;
+
+u32			ps_r2_water_reflections	=	1;
+xr_token r2_water_reflections_token[] = {
+    { "off", 0 },
+    { "0",   0 },
+    { "on",  1 },
+    { "1",   1 },
+    { 0,     0 }
+};
 xr_token							qpreset_token							[ ]={
 	{ "Minimum",					0											},
 	{ "Low",						1											},
@@ -306,6 +315,7 @@ void		xrRender_initconsole	()
 	CMD2(CCC_tf_MipBias,"r2_tf_mipbias",		&ps_r2_tf_Mipbias			);
 
 	// R2-specific
+	CMD3(CCC_Token,		"r2_water_reflections",	&ps_r2_water_reflections,	r2_water_reflections_token);
 	CMD2(CCC_R2GM,		"r2em",					&ps_r2_gmaterial							);
 	CMD3(CCC_Mask,		"r2_tonemap",			&ps_r2_ls_flags,			R2FLAG_TONEMAP	);
 	CMD4(CCC_Float,		"r2_tonemap_middlegray",&ps_r2_tonemap_middlegray,	0.0f,	2.0f	);

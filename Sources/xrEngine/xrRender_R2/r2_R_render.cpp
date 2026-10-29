@@ -151,6 +151,10 @@ void CRender::render_water_reflection()
 	// turning the camera, which otherwise causes a one-frame reflection jump.
 	BOOL previousPlaneKnown = bWaterReflectionPlaneKnown;
 	float previousWaterHeight = mWaterReflectionHeight;
+	// The console toggle disables only the custom planar capture. Keeping the
+	// validity flag false makes the water shader use its original cubemap fallback.
+	bWaterReflectionValid = FALSE;
+	if (!ps_r2_water_reflections) return;
 	// The reflection may be temporarily unavailable while the camera is underwater
 	// or the water plane drops out of the visibility list. Keep the last known plane
 	// separately from per-frame texture validity so we can reacquire it on return.
@@ -218,6 +222,10 @@ void CRender::render_water_reflection()
 	mirror.transform_dir(Device.vCameraTop,oldTop);
 	mirror.transform_dir(Device.vCameraRight,oldRight);
 	Device.mView.mul(oldDeviceView,mirror); // mirror world coordinates, then apply original view
+	// Slightly widen only the reflection capture frustum. This expands the
+	// reflected coverage at water edges without increasing shader edge blur.
+	Device.mProject._11 *= 0.70f;
+	Device.mProject._22 *= 0.70f;
 	Device.mFullTransform.mul(Device.mProject,Device.mView);
 	mWaterReflectionVP.set(Device.mFullTransform);
 	RCache.set_xform_view(Device.mView);

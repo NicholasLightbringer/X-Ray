@@ -49,6 +49,7 @@ enum
 };
 
 // R2
+extern ECORE_API	u32			ps_r2_water_reflections;
 extern ECORE_API	float		ps_r2_ssaLOD_A;
 extern ECORE_API	float		ps_r2_ssaLOD_B;
 extern ECORE_API	float		ps_r2_tf_Mipbias;
