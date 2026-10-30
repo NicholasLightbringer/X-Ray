@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "..\xrRender\xrRender_console.h"
 #include "r2.h"
 #include "..\fbasicvisual.h"
 #include "..\xr_object.h"
@@ -18,6 +19,12 @@ static class cl_water_reflection_vp : public R_constant_setup {
 static class cl_water_reflection_params : public R_constant_setup {
 	virtual void setup(R_constant* C) { RCache.set_c(C,RImplementation.bWaterReflectionValid ? 1.f : 0.f,RImplementation.mWaterReflectionHeight,1.0f,0.f); }
 } binder_water_reflection_params;
+
+static class cl_selflight_intensity : public R_constant_setup {
+	virtual void setup(R_constant* C) {
+		RCache.set_c(C, ps_r2_selflight_intensity, 0.f, 0.f, 0.f);
+	}
+} binder_selflight_intensity;
 //////////////////////////////////////////////////////////////////////////
 
 
@@ -203,6 +210,7 @@ void					CRender::create					()
 	if (!water_reflection_constants_registered) {
 		::Device.Resources->RegisterConstantSetup("m_water_reflectionVP",&binder_water_reflection_vp);
 		::Device.Resources->RegisterConstantSetup("water_reflection_params",&binder_water_reflection_params);
+		::Device.Resources->RegisterConstantSetup("selflight_intensity", &binder_selflight_intensity);
 		water_reflection_constants_registered = TRUE;
 	}
 

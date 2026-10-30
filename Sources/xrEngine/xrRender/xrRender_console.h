@@ -133,3 +133,4 @@ extern void						xrRender_apply_tf		();
 #endif
 
 extern ECORE_API u32 ps_r2_glow_show;
+extern ECORE_API float ps_r2_selflight_intensity;
