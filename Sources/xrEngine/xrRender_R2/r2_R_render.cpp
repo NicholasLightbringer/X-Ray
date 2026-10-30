@@ -3,6 +3,8 @@
 #include "..\fbasicvisual.h"
 #include "..\customhud.h"
 #include "..\xr_object.h"
+#include "GlowManager.h"
+#include "..\xrRender\xrRender_console.h"
 
 IC	bool	pred_sp_sort	(ISpatial*	_1, ISpatial* _2)
 {
@@ -113,7 +115,11 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 				{
 					// renderable
 					IRenderable*	renderable		= spatial->dcast_Renderable	();
-					VERIFY							(renderable);
+                    if (!renderable) {
+                        CGlow* glow = dynamic_cast<CGlow*>(spatial);
+                        if (glow && L_Glows && ps_r2_glow_show) L_Glows->add(glow);
+                        break;
+                    }
 
 					// Occlusion
 					vis_data&		v_orig			= renderable->renderable.visual->vis;
@@ -224,8 +230,8 @@ void CRender::render_water_reflection()
 	Device.mView.mul(oldDeviceView,mirror); // mirror world coordinates, then apply original view
 	// Slightly widen only the reflection capture frustum. This expands the
 	// reflected coverage at water edges without increasing shader edge blur.
-	Device.mProject._11 *= 0.70f;
-	Device.mProject._22 *= 0.70f;
+	Device.mProject._11 *= 0.90f;
+	Device.mProject._22 *= 0.90f;
 	Device.mFullTransform.mul(Device.mProject,Device.mView);
 	mWaterReflectionVP.set(Device.mFullTransform);
 	RCache.set_xform_view(Device.mView);
@@ -571,7 +577,8 @@ void CRender::render_forward				()
 		render_main								(Device.mFullTransform,false);//
 		r_dsgraph_render_graph					(1)	;					// normal level, secondary priority
 		PortalTraverser.fade_render				()	;					// faded-portals
-		r_dsgraph_render_sorted					()	;					// strict-sorted geoms
+		r_dsgraph_render_sorted					()	;
+		if (L_Glows && ps_r2_glow_show) L_Glows->Render();					// strict-sorted geoms
 		g_pGamePersistent->Environment().RenderLast()	;					// rain/thunder-bolts
 	}
 

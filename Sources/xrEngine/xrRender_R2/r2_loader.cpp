@@ -128,7 +128,7 @@ void CRender::level_Unload()
 	Portals.clear			();
 
 	//*** Lights
-	// Glows.Unload			();
+	if (L_Glows) L_Glows->Unload();
 	Lights.Unload			();
 
 	//*** Visuals
@@ -251,8 +251,13 @@ void CRender::LoadVisuals(IReader *fs)
 
 void CRender::LoadLights(IReader *fs)
 {
-	// lights
-	Lights.Load	(fs);
+    // lights
+    Lights.Load(fs);
+    // Static level glows (same fsL_GLOWS chunk as R1)
+    if (L_Glows) {
+        IReader* chunk = fs->open_chunk(fsL_GLOWS);
+        if (chunk) { L_Glows->Load(chunk); chunk->close(); }
+    }
 }
 
 struct b_portal

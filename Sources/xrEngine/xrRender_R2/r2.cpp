@@ -19,21 +19,7 @@ static class cl_water_reflection_params : public R_constant_setup {
 	virtual void setup(R_constant* C) { RCache.set_c(C,RImplementation.bWaterReflectionValid ? 1.f : 0.f,RImplementation.mWaterReflectionHeight,1.0f,0.f); }
 } binder_water_reflection_params;
 //////////////////////////////////////////////////////////////////////////
-class CGlow				: public IRender_Glow
-{
-public:
-	bool				bActive;
-public:
-	CGlow() : bActive(false)		{ }
-	virtual void					set_active			(bool b)					{ bActive=b;		}
-	virtual bool					get_active			()							{ return bActive;	}
-	virtual void					set_position		(const Fvector& P)			{ }
-	virtual void					set_direction		(const Fvector& D)			{ }
-	virtual void					set_radius			(float R)					{ }
-	virtual void					set_texture			(LPCSTR name)				{ }
-	virtual void					set_color			(const Fcolor& C)			{ }
-	virtual void					set_color			(float r, float g, float b)	{ }
-};
+
 
 float		r_dtex_range		= 50.f;
 //////////////////////////////////////////////////////////////////////////
@@ -431,6 +417,7 @@ void					CRender::rmNormal			()
 //////////////////////////////////////////////////////////////////////
 CRender::CRender()
 {
+	L_Glows = xr_new<CGlowManager>();
 	bRenderingReflection = FALSE;
 	bWaterReflectionValid = FALSE;
 	bWaterReflectionPlaneKnown = FALSE;
@@ -440,6 +427,7 @@ CRender::CRender()
 
 CRender::~CRender()
 {
+	xr_delete(L_Glows);
 }
 
 #include "..\GameFont.h"

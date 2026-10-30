@@ -131,3 +131,5 @@ extern BOOL						xrRender_test_hw		();
 extern void						xrRender_apply_tf		();
 
 #endif
+
+extern ECORE_API u32 ps_r2_glow_show;

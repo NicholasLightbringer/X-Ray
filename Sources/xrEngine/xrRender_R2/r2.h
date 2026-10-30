@@ -6,6 +6,7 @@
 #include "..\xrRender\PSLibrary.h"
 
 #include "r2_types.h"
+#include "GlowManager.h"
 #include "r2_rendertarget.h"
 
 #include "..\xrRender\hom.h"
@@ -111,6 +112,7 @@ public:
 	CRenderTarget*												Target;			// Render-target
 
 	CLight_DB													Lights;
+	CGlowManager* L_Glows;
 	CLight_Compute_XFORM_and_VIS								LR;
 	xr_vector<light*>											Lights_LastFrame;
 	SMAP_Allocator												LP_smap_pool;
