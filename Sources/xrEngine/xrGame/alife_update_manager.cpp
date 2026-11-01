@@ -181,6 +181,24 @@ bool CALifeUpdateManager::change_level	(NET_Packet &net_packet)
 	net_packet.r_vec3				(graph().actor()->o_Position);
 	net_packet.r_vec3				(graph().actor()->o_Angle);
 
+	// Optional level_changers.ltx time_skip value, expressed in minutes.
+	u32 time_skip_minutes = 0;
+	if (!net_packet.r_eof())
+		time_skip_minutes = net_packet.r_u32();
+
+	if (time_skip_minutes && Level().Server && Level().Server->game)
+	{
+		game_sv_GameState* game = Level().Server->game;
+		const s64 current_time = (s64)game->GetGameTime();
+		const s64 new_time_value = current_time + (s64)time_skip_minutes * 60 * 1000;
+		game->SetGameTime((ALife::_TIME_ID)new_time_value);
+		game->SetEnvironmentGameTimeFactor(
+			(ALife::_TIME_ID)new_time_value,
+			game->GetEnvironmentGameTimeFactor()
+		);
+		Msg("* Level changer: skipped %u minutes", time_skip_minutes);
+	}
+
 	Level().ClientSave				();
 
 	graph().actor()->o_torso.yaw	= graph().actor()->o_Angle.y;

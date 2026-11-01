@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
+#include <stdlib.h>
 #include "level_changer.h"
 #include "hit.h"
 #include "actor.h"
@@ -223,6 +224,31 @@ static bool level_changer_closed(const CLevelChanger* changer)
 	return condition_result ? when_true : when_false;
 }
 
+static u32 level_changer_time_skip_minutes(const CLevelChanger* changer)
+{
+	CInifile* ini = level_changers_ini();
+	LPCSTR section = level_changer_config_section(changer);
+	if (!ini || !section || !ini->line_exist(section, "time_skip"))
+		return 0;
+
+	LPCSTR value = ini->r_string(section, "time_skip");
+	if (!value || !value[0])
+		return 0;
+
+	char* end = NULL;
+	const double hours = strtod(value, &end);
+	while (end && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n'))
+		++end;
+
+	if (!end || end == value || *end != '\0' || !(hours > 0.0) || hours > 100000.0)
+	{
+		Msg("! level_changers.ltx: invalid time_skip in [%s]: %s", section, value);
+		return 0;
+	}
+
+	return (u32)(hours * 60.0 + 0.5);
+}
+
 static LPCSTR level_changer_tip(const CLevelChanger* changer, bool closed)
 {
 	CInifile* ini = level_changers_ini();
@@ -356,6 +382,7 @@ void CLevelChanger::feel_touch_new	(CObject *tpObject)
 		p.w			(&m_level_vertex_id,sizeof(m_level_vertex_id));
 		p.w_vec3	(m_position);
 		p.w_vec3	(m_angles);
+		p.w_u32(level_changer_time_skip_minutes(this));
 		Level().Send(p,net_flags(TRUE));
 		return;
 	}
@@ -363,7 +390,7 @@ void CLevelChanger::feel_touch_new	(CObject *tpObject)
 	Fvector			p,r;
 	bool				b = get_reject_pos(p,r);
 	if (pGameSP)
-		pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b,level_changer_tip(this, false));
+		pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b,level_changer_tip(this, false),level_changer_time_skip_minutes(this));
 
 	m_entrance_time	= Device.fTimeGlobal;
 }
@@ -433,7 +460,7 @@ void CLevelChanger::update_actor_invitation()
 			Fvector			p,r;
 			bool				b = get_reject_pos(p,r);
 			if(pGameSP)
-				pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b,level_changer_tip(this, false));
+				pGameSP->ChangeLevel(m_game_vertex_id,m_level_vertex_id,m_position,m_angles,p,r,b,level_changer_tip(this, false),level_changer_time_skip_minutes(this));
 			m_entrance_time		= Device.fTimeGlobal;
 		}
 	}

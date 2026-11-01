@@ -164,7 +164,7 @@ void CUIGameSP::ReInitShownUI()
 
 
 extern ENGINE_API BOOL bShowPauseString;
-void CUIGameSP::ChangeLevel				(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b, LPCSTR invitation)
+void CUIGameSP::ChangeLevel				(GameGraph::_GRAPH_ID game_vert_id, u32 level_vert_id, Fvector pos, Fvector ang, Fvector pos2, Fvector ang2, bool b, LPCSTR invitation, u32 time_skip_minutes)
 {
 	if( !MainInputReceiver() || MainInputReceiver()!=UIChangeLevelWnd)
 	{
@@ -175,6 +175,7 @@ void CUIGameSP::ChangeLevel				(GameGraph::_GRAPH_ID game_vert_id, u32 level_ver
 		UIChangeLevelWnd->m_position_cancel		= pos2;
 		UIChangeLevelWnd->m_angles_cancel		= ang2;
 		UIChangeLevelWnd->m_b_position_cancel	= b;
+		UIChangeLevelWnd->m_time_skip_minutes	= time_skip_minutes;
 		UIChangeLevelWnd->SetLevelChangerMessage(invitation, false);
 		m_game->StartStopMenu					(UIChangeLevelWnd,true);
 	}
@@ -211,6 +212,7 @@ CChangeLevelWnd::CChangeLevelWnd		()
 	m_defaultOkButtonText = m_messageBox->GetOkButtonText();
 	m_levelChangerMessage.clear();
 	m_bLevelChangerBlocked = false;
+	m_time_skip_minutes = 0;
 	SetWndPos				(m_messageBox->GetWndPos());
 	m_messageBox->SetWndPos	(0.0f,0.0f);
 	SetWndSize				(m_messageBox->GetWndSize());
@@ -243,7 +245,7 @@ void CChangeLevelWnd::OnOk()
 	p.w										(&m_level_vertex_id,sizeof(m_level_vertex_id));
 	p.w_vec3								(m_position);
 	p.w_vec3								(m_angles);
-
+	p.w_u32								(m_time_skip_minutes);
 	Level().Send							(p,net_flags(TRUE));
 }
 
