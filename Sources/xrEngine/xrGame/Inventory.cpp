@@ -186,6 +186,10 @@ void CInventory::Take(CGameObject *pObj, bool bNotActivate, bool strict_placemen
 		}
 	}
 	
+	CActor* actor = smart_cast<CActor*>(m_pOwner);
+	if (actor)
+		pIItem->PlayPickupSound(actor);
+
 	m_pOwner->OnItemTake				(pIItem);
 
 	CalcTotalWeight						();

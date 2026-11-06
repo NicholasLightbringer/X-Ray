@@ -26,6 +26,7 @@
 #ifdef DEBUG
 #	include "debug_renderer.h"
 #endif
+#include "ai_sounds.h"
 
 #define ITEM_REMOVE_TIME		30000
 struct net_update_IItem {	u32					dwTimeStamp;
@@ -97,7 +98,7 @@ CInventoryItem::CInventoryItem()
 CInventoryItem::~CInventoryItem() 
 {
 	delete_data			(m_net_updateData);
-
+	HUD_SOUND::DestroySound(m_pickupSound);
 	bool B_GOOD			= (	!m_pCurrentInventory || 
 							(std::find(	m_pCurrentInventory->m_all.begin(),m_pCurrentInventory->m_all.end(), this)==m_pCurrentInventory->m_all.end()) );
 	if(!B_GOOD)
@@ -113,6 +114,24 @@ CInventoryItem::~CInventoryItem()
 				p ? p->ID() : -1,
 				Device.dwFrame);
 	}
+}
+
+void CInventoryItem::PlayPickupSound(CEntityAlive* entity_alive)
+{
+	if (!entity_alive || m_pickupSound.sounds.empty())
+		return;
+
+	HUD_SOUND::SSnd& sound =
+		m_pickupSound.sounds[Random.randI(m_pickupSound.sounds.size())];
+
+	sound.snd.play_no_feedback(
+		entity_alive,
+		sm_2D,
+		sound.delay,
+		0,
+		0,
+		&sound.volume
+	);
 }
 
 void CInventoryItem::Load(LPCSTR section) 
@@ -153,6 +172,9 @@ void CInventoryItem::Load(LPCSTR section)
 	m_flags.set					(FAllowSprint,READ_IF_EXISTS	(pSettings, r_bool, section,"sprint_allowed",			TRUE));
 	m_fControlInertionFactor	= READ_IF_EXISTS(pSettings, r_float,section,"control_inertion_factor",	1.0f);
 	m_icon_name					= READ_IF_EXISTS(pSettings, r_string,section,"icon_name",				NULL);
+
+	if (pSettings->line_exist(section, "pickup_sound"))
+		HUD_SOUND::LoadSound(section, "pickup_sound", m_pickupSound, SOUND_TYPE_ITEM_USING);
 
 }
 

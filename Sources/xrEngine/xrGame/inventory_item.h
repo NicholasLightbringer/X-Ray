@@ -11,7 +11,7 @@
 #include "inventory_space.h"
 #include "hit_immunity.h"
 #include "attachable_item.h"
-
+#include "HudSound.h"
 enum EHandDependence{
 	hdNone	= 0,
 	hd1Hand	= 1,
@@ -32,7 +32,7 @@ struct SPHNetState;
 struct net_update_IItem;
 struct net_updateData;
 class CInventoryOwner;
-
+class CEntityAlive;
 struct SHit;
 
 class CInventoryItem : 
@@ -60,13 +60,14 @@ protected:
 	};
 
 	Flags16						m_flags;
+	HUD_SOUND					m_pickupSound;
 public:
 								CInventoryItem		();
 	virtual						~CInventoryItem		();
 
 public:
 	virtual void				Load				(LPCSTR section);
-
+	void						PlayPickupSound	(CEntityAlive* entity_alive);
 	virtual LPCSTR				Name				();
 	virtual LPCSTR				NameShort			();
 //.	virtual LPCSTR				NameComplex			();
