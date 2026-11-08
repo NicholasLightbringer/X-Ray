@@ -18,6 +18,8 @@
 #define MAX_RADIATION 1.0f
 #define MAX_PSY_HEALTH 1.0f
 
+static const u32 BOOST_TIME_SAVE_MAGIC = 0x31545342u; // BST1
+
 CEntityConditionSimple::CEntityConditionSimple()
 {
 	max_health()		= MAX_HEALTH;
@@ -37,6 +39,7 @@ CEntityCondition::CEntityCondition(CEntityAlive *object)
 	m_use_limping_state = false;
 	m_iLastTimeCalled	= 0;
 	m_bTimeValid		= false;
+	m_fBoostDeltaTime = 0.0f;
 
 	m_fPowerMax			= MAX_POWER;
 	m_fRadiationMax		= MAX_RADIATION;
@@ -106,12 +109,13 @@ void CEntityCondition::reinit	()
 {
 	m_iLastTimeCalled		= 0;
 	m_bTimeValid			= false;
+	m_fBoostDeltaTime = 0.0f;
 
 	max_health()			= MAX_HEALTH;
 	m_fPowerMax				= MAX_POWER;
 	m_fRadiationMax			= MAX_RADIATION;
 	m_fPsyHealthMax			= MAX_PSY_HEALTH;
-
+	m_timedConditionEffects.clear();
 	m_fEntityMorale			=  m_fEntityMoraleMax = 1.f;
 
 	health()				= MAX_HEALTH;
@@ -159,6 +163,89 @@ void CEntityCondition::ChangePsyHealth(float value)
 }
 
 
+void CEntityCondition::AddTimedConditionEffect(float duration, float health, float power, float satiety, float radiation, float psy_health, float bleeding, float max_power)
+{
+	if (duration <= 0.0f)
+		return;
+
+	STimedConditionEffect effect;
+	effect.m_fTimeLeft		= duration;
+	effect.m_fHealthLeft	= health;
+	effect.m_fPowerLeft		= power;
+	effect.m_fSatietyLeft	= satiety;
+	effect.m_fRadiationLeft	= radiation;
+	effect.m_fPsyHealthLeft	= psy_health;
+	effect.m_fBleedingLeft	= bleeding;
+	effect.m_fMaxPowerLeft	= max_power;
+
+	if (fis_zero(health) && fis_zero(power) && fis_zero(satiety) && fis_zero(radiation) &&
+		fis_zero(psy_health) && fis_zero(bleeding) && fis_zero(max_power))
+		return;
+
+	m_timedConditionEffects.push_back(effect);
+}
+
+void CEntityCondition::UpdateTimedConditionEffects()
+{
+	float boost_dt = m_fBoostDeltaTime;
+	m_fBoostDeltaTime = 0.0f;
+
+	if (m_timedConditionEffects.empty() || boost_dt <= 0.0f)
+		return;
+
+	for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+	{
+		STimedConditionEffect& effect = m_timedConditionEffects[i];
+		float step = _min(boost_dt, effect.m_fTimeLeft);;
+		if (step <= 0.0f)
+			continue;
+
+		bool completed = (step >= effect.m_fTimeLeft);
+		float fraction = completed ? 1.0f : (step / effect.m_fTimeLeft);
+		float health = completed ? effect.m_fHealthLeft : effect.m_fHealthLeft * fraction;
+		float power = completed ? effect.m_fPowerLeft : effect.m_fPowerLeft * fraction;
+		float satiety = completed ? effect.m_fSatietyLeft : effect.m_fSatietyLeft * fraction;
+		float radiation = completed ? effect.m_fRadiationLeft : effect.m_fRadiationLeft * fraction;
+		float psy_health = completed ? effect.m_fPsyHealthLeft : effect.m_fPsyHealthLeft * fraction;
+		float bleeding = completed ? effect.m_fBleedingLeft : effect.m_fBleedingLeft * fraction;
+		float max_power = completed ? effect.m_fMaxPowerLeft : effect.m_fMaxPowerLeft * fraction;
+
+		// Apply a proportional slice of every effect during this condition update.
+		if (health != 0.0f)
+			ChangeHealth(health);
+		if (power != 0.0f)
+			ChangePower(power);
+		if (satiety != 0.0f)
+			ChangeSatiety(satiety);
+		if (radiation != 0.0f)
+			ChangeRadiation(radiation);
+		if (psy_health != 0.0f)
+			ChangePsyHealth(psy_health);
+		if (bleeding != 0.0f)
+			ChangeBleeding(bleeding);
+		if (max_power != 0.0f)
+			SetMaxPower(GetMaxPower() + max_power);
+
+		effect.m_fHealthLeft	-= health;
+		effect.m_fPowerLeft	-= power;
+		effect.m_fSatietyLeft	-= satiety;
+		effect.m_fRadiationLeft	-= radiation;
+		effect.m_fPsyHealthLeft -= psy_health;
+		effect.m_fBleedingLeft	-= bleeding;
+		effect.m_fMaxPowerLeft	-= max_power;
+		effect.m_fTimeLeft		-= step;
+	}
+
+	for (u32 i = 0; i < m_timedConditionEffects.size();)
+	{
+		if (m_timedConditionEffects[i].m_fTimeLeft <= 0.0001f)
+			m_timedConditionEffects.erase(m_timedConditionEffects.begin() + i);
+		else
+			++i;
+	}
+}
+
+
 void CEntityCondition::ChangeCircumspection(float value)
 {
 	m_fDeltaCircumspection += value;
@@ -202,8 +289,10 @@ void  CEntityCondition::UpdateWounds		()
 	);
 }
 
-void CEntityCondition::UpdateConditionTime()
+void CEntityCondition::UpdateConditionTime(u32 dt)
 {
+	m_fBoostDeltaTime = Device.Paused() ? 0.0f : float(dt) / 1000.0f;
+
 	u64 _cur_time = (GameID() == GAME_SINGLE) ? Level().GetGameTime() : Level().timeServer();
 	
 	if(m_bTimeValid)
@@ -234,6 +323,7 @@ void CEntityCondition::UpdateConditionTime()
 void CEntityCondition::UpdateCondition()
 {
 	if(GetHealth()<=0)			return;
+	UpdateTimedConditionEffects();
 	//-----------------------------------------
 	bool CriticalHealth			= false;
 
@@ -499,74 +589,151 @@ bool CEntityCondition::IsLimping() const
 	return (m_fPower*GetHealth() <= m_limping_threshold);
 }
 
-void CEntityCondition::save	(NET_Packet &output_packet)
+void CEntityCondition::save(NET_Packet& output_packet)
 {
-	u8 is_alive	= (GetHealth()>0.f)?1:0;
-	
-	output_packet.w_u8	(is_alive);
-	if(is_alive)
-	{
-		save_data						(m_fPower,output_packet);
-		save_data						(m_fRadiation,output_packet);
-		save_data						(m_fEntityMorale,output_packet);
-		save_data						(m_fPsyHealth,output_packet);
+	u8 is_alive = (GetHealth() > 0.f) ? 1 : 0;
 
-		output_packet.w_u8				((u8)m_WoundVector.size());
-		for(WOUND_VECTOR_IT it = m_WoundVector.begin(); m_WoundVector.end() != it; it++)
+	output_packet.w_u8(is_alive);
+
+	if (is_alive)
+	{
+		save_data(m_fPower, output_packet);
+		save_data(m_fRadiation, output_packet);
+		save_data(m_fEntityMorale, output_packet);
+		save_data(m_fPsyHealth, output_packet);
+
+		output_packet.w_u8((u8)m_WoundVector.size());
+
+		for (WOUND_VECTOR_IT it = m_WoundVector.begin(); it != m_WoundVector.end(); ++it)
 			(*it)->save(output_packet);
+
+		// boost_time: save active effects
+		VERIFY(m_timedConditionEffects.size() <= 255);
+
+		output_packet.w_u32(BOOST_TIME_SAVE_MAGIC);
+		output_packet.w_u8((u8)m_timedConditionEffects.size());
+
+		for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+		{
+			const STimedConditionEffect& effect = m_timedConditionEffects[i];
+
+			save_data(effect.m_fTimeLeft, output_packet);
+			save_data(effect.m_fHealthLeft, output_packet);
+			save_data(effect.m_fPowerLeft, output_packet);
+			save_data(effect.m_fSatietyLeft, output_packet);
+			save_data(effect.m_fRadiationLeft, output_packet);
+			save_data(effect.m_fPsyHealthLeft, output_packet);
+			save_data(effect.m_fBleedingLeft, output_packet);
+			save_data(effect.m_fMaxPowerLeft, output_packet);
+		}
 	}
 }
 
-void CEntityCondition::load	(IReader &input_packet)
+void CEntityCondition::load(IReader& input_packet)
 {
 	m_bTimeValid = false;
+	m_fBoostDeltaTime = 0.0f;
+	m_timedConditionEffects.clear();
 
-	u8 is_alive				= input_packet.r_u8	();
-	if(is_alive)
+	u8 is_alive = input_packet.r_u8();
+
+	if (is_alive)
 	{
-		load_data						(m_fPower,input_packet);
-		load_data						(m_fRadiation,input_packet);
-		load_data						(m_fEntityMorale,input_packet);
-		load_data						(m_fPsyHealth,input_packet);
+		load_data(m_fPower, input_packet);
+		load_data(m_fRadiation, input_packet);
+		load_data(m_fEntityMorale, input_packet);
+		load_data(m_fPsyHealth, input_packet);
 
 		ClearWounds();
+
 		m_WoundVector.resize(input_packet.r_u8());
-		if(!m_WoundVector.empty())
-			for(u32 i=0; i<m_WoundVector.size(); i++)
+
+		if (!m_WoundVector.empty())
+		{
+			for (u32 i = 0; i < m_WoundVector.size(); ++i)
 			{
 				CWound* pWound = xr_new<CWound>(BI_NONE);
 				pWound->load(input_packet);
 				m_WoundVector[i] = pWound;
 			}
+		}
+
+		// boost_time: restore active effects
+		if (input_packet.elapsed() >= (int)sizeof(u32))
+		{
+			int save_position = input_packet.tell();
+
+			u32 magic = input_packet.r_u32();
+
+			if (magic == BOOST_TIME_SAVE_MAGIC && input_packet.elapsed() >= 1)
+			{
+				u8 effect_count = input_packet.r_u8();
+
+				const u32 effect_size = 8u * sizeof(float);
+
+				if (input_packet.elapsed() >= (int)(effect_count * effect_size))
+				{
+					m_timedConditionEffects.resize(effect_count);
+
+					for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+					{
+						STimedConditionEffect& effect = m_timedConditionEffects[i];
+
+						load_data(effect.m_fTimeLeft, input_packet);
+						load_data(effect.m_fHealthLeft, input_packet);
+						load_data(effect.m_fPowerLeft, input_packet);
+						load_data(effect.m_fSatietyLeft, input_packet);
+						load_data(effect.m_fRadiationLeft, input_packet);
+						load_data(effect.m_fPsyHealthLeft, input_packet);
+						load_data(effect.m_fBleedingLeft, input_packet);
+						load_data(effect.m_fMaxPowerLeft, input_packet);
+					}
+				}
+				else
+				{
+					input_packet.seek(save_position);
+				}
+			}
+			else
+			{
+				input_packet.seek(save_position);
+			}
+		}
 	}
 }
 
 void CEntityCondition::SConditionChangeV::load(LPCSTR sect, LPCSTR prefix)
 {
-	string256				str;
-	m_fV_Circumspection		= 0.01f;
+	string256 str;
+	m_fV_Circumspection = 0.01f;
 
-	strconcat				(sizeof(str),str,"radiation_v",prefix);
-	m_fV_Radiation			= pSettings->r_float(sect,str);
-	strconcat				(sizeof(str),str,"radiation_health_v",prefix);
-	m_fV_RadiationHealth	= pSettings->r_float(sect,str);
-	strconcat				(sizeof(str),str,"morale_v",prefix);
-	m_fV_EntityMorale		= pSettings->r_float(sect,str);
-	strconcat				(sizeof(str),str,"psy_health_v",prefix);
-	m_fV_PsyHealth			= pSettings->r_float(sect,str);	
-	strconcat				(sizeof(str),str,"bleeding_v",prefix);
-	m_fV_Bleeding			= pSettings->r_float(sect,str);
-	strconcat				(sizeof(str),str,"wound_incarnation_v",prefix);
-	m_fV_WoundIncarnation	= pSettings->r_float(sect,str);
-	strconcat				(sizeof(str),str,"health_restore_v",prefix);
-	m_fV_HealthRestore		= READ_IF_EXISTS(pSettings,r_float,sect, str,0.0f);
+	strconcat(sizeof(str), str, "radiation_v", prefix);
+	m_fV_Radiation = pSettings->r_float(sect, str);
+
+	strconcat(sizeof(str), str, "radiation_health_v", prefix);
+	m_fV_RadiationHealth = pSettings->r_float(sect, str);
+
+	strconcat(sizeof(str), str, "morale_v", prefix);
+	m_fV_EntityMorale = pSettings->r_float(sect, str);
+
+	strconcat(sizeof(str), str, "psy_health_v", prefix);
+	m_fV_PsyHealth = pSettings->r_float(sect, str);
+
+	strconcat(sizeof(str), str, "bleeding_v", prefix);
+	m_fV_Bleeding = pSettings->r_float(sect, str);
+
+	strconcat(sizeof(str), str, "wound_incarnation_v", prefix);
+	m_fV_WoundIncarnation = pSettings->r_float(sect, str);
+
+	strconcat(sizeof(str), str, "health_restore_v", prefix);
+	m_fV_HealthRestore = READ_IF_EXISTS(pSettings, r_float, sect, str, 0.0f);
 }
 
-void CEntityCondition::remove_links	(const CObject *object)
+void CEntityCondition::remove_links(const CObject *object)
 {
 	if (m_pWho != object)
 		return;
 
-	m_pWho					= m_object;
-	m_iWhoID				= m_object->ID();
+	m_pWho = m_object;
+	m_iWhoID = m_object->ID();
 }

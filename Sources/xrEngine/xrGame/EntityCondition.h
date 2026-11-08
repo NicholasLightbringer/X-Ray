@@ -55,7 +55,7 @@ public:
 	void 					ChangeRadiation			(float value);
 	void 					ChangePsyHealth			(float value);
 	virtual void 			ChangeAlcohol			(float value){};
-
+	void					AddTimedConditionEffect	(float duration, float health, float power, float satiety, float radiation, float psy_health, float bleeding, float max_power);
 	IC void					MaxPower				()					{m_fPower = m_fPowerMax;};
 	IC void					SetMaxPower				(float val)			{m_fPowerMax = val; clamp(m_fPowerMax,0.1f,1.0f);};
 	IC float				GetMaxPower				() const			{return m_fPowerMax;};
@@ -69,7 +69,7 @@ public:
 	//обновления состояния с течением времени
 	virtual void			UpdateCondition			();
 	void					UpdateWounds			();
-	void					UpdateConditionTime		();
+	void UpdateConditionTime(u32 dt);
 	IC void					SetConditionDeltaTime	(float DeltaTime) { m_fDeltaTime = DeltaTime; };
 
 	
@@ -86,6 +86,19 @@ public:
 	
 	void					ClearWounds();
 protected:
+	struct STimedConditionEffect
+	{
+		float		m_fTimeLeft;
+		float		m_fHealthLeft;
+		float		m_fPowerLeft;
+		float		m_fSatietyLeft;
+		float		m_fRadiationLeft;
+		float		m_fPsyHealthLeft;
+		float		m_fBleedingLeft;
+		float		m_fMaxPowerLeft;
+	};
+	xr_vector<STimedConditionEffect>	m_timedConditionEffects;
+	void				UpdateTimedConditionEffects();
 	void					UpdateHealth			();
 	void					UpdatePower				();
 	void					UpdateSatiety			(float k=1.0f);
@@ -164,6 +177,7 @@ protected:
 	//для отслеживания времени 
 	u64					m_iLastTimeCalled;
 	float				m_fDeltaTime;
+	float m_fBoostDeltaTime;
 	//кто нанес последний хит
 	CObject*			m_pWho;
 	u16					m_iWhoID;

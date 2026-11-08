@@ -199,7 +199,7 @@ void CEntityAlive::shedule_Update(u32 dt)
 	inherited::shedule_Update	(dt);
 
 	//condition update with the game time pass
-	conditions().UpdateConditionTime	();
+	conditions().UpdateConditionTime(dt);
 	conditions().UpdateCondition		();
 	//Обновление партиклов огня
 	UpdateFireParticles	();

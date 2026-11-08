@@ -38,6 +38,8 @@ protected:
 	float					m_fSatietyInfluence;
 	float					m_fRadiationInfluence;
 	float					m_fMaxPowerUpInfluence;
+	float					m_fPsyHealthInfluence;
+	float					m_fBoostTime;
 	//заживление ран на кол-во процентов
 	float					m_fWoundsHealPerc;
 

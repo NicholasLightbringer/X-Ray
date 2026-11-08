@@ -23,7 +23,8 @@ CEatableItem::CEatableItem()
 	m_fPowerInfluence = 0;
 	m_fSatietyInfluence = 0;
 	m_fRadiationInfluence = 0;
-
+	m_fPsyHealthInfluence = 0;
+	m_fBoostTime = 0;
 	m_iPortionsNum = -1;
 
 	m_physic_item	= 0;
@@ -56,6 +57,8 @@ void CEatableItem::Load(LPCSTR section)
 	
 	m_iStartPortionsNum			= pSettings->r_s32	(section, "eat_portions_num");
 	m_fMaxPowerUpInfluence		= READ_IF_EXISTS	(pSettings,r_float,section,"eat_max_power",0.0f);
+	m_fPsyHealthInfluence		= READ_IF_EXISTS	(pSettings,r_float,section,"eat_psy_health",0.0f);
+	m_fBoostTime				= READ_IF_EXISTS	(pSettings,r_float,section,"boost_time",0.0f);
 	VERIFY						(m_iPortionsNum<10000);
 }
 
@@ -114,14 +117,31 @@ void CEatableItem::UseBy (CEntityAlive* entity_alive)
 	R_ASSERT		(IO);
 	R_ASSERT		(m_pCurrentInventory==IO->m_inventory);
 	R_ASSERT		(object().H_Parent()->ID()==entity_alive->ID());
-	entity_alive->conditions().ChangeHealth		(m_fHealthInfluence);
-	entity_alive->conditions().ChangePower		(m_fPowerInfluence);
-	entity_alive->conditions().ChangeSatiety	(m_fSatietyInfluence);
-	entity_alive->conditions().ChangeRadiation	(m_fRadiationInfluence);
-	entity_alive->conditions().ChangeBleeding	(m_fWoundsHealPerc);
-	
-	entity_alive->conditions().SetMaxPower( entity_alive->conditions().GetMaxPower()+m_fMaxPowerUpInfluence );
-	
+	if (m_fBoostTime > 0.0f)
+	{
+		entity_alive->conditions().AddTimedConditionEffect(
+			m_fBoostTime,
+			m_fHealthInfluence,
+			m_fPowerInfluence,
+			m_fSatietyInfluence,
+			m_fRadiationInfluence,
+			m_fPsyHealthInfluence,
+			m_fWoundsHealPerc,
+			m_fMaxPowerUpInfluence
+		);
+	}
+	else
+	{
+		// Preserve original instant-use behaviour when boost_time is absent or zero.
+		entity_alive->conditions().ChangeHealth		(m_fHealthInfluence);
+		entity_alive->conditions().ChangePower		(m_fPowerInfluence);
+		entity_alive->conditions().ChangeSatiety	(m_fSatietyInfluence);
+		entity_alive->conditions().ChangeRadiation	(m_fRadiationInfluence);
+		entity_alive->conditions().ChangePsyHealth	(m_fPsyHealthInfluence);
+		entity_alive->conditions().ChangeBleeding	(m_fWoundsHealPerc);
+ 
+		entity_alive->conditions().SetMaxPower( entity_alive->conditions().GetMaxPower()+m_fMaxPowerUpInfluence );
+	}
 	//уменьшить количество порций
 	if(m_iPortionsNum > 0)
 		--(m_iPortionsNum);
