@@ -279,7 +279,10 @@ void CUIInventoryWnd::Update()
 
 		// update outfit parameters
 		CCustomOutfit* outfit			= smart_cast<CCustomOutfit*>(pOurInvOwner->inventory().m_slots[OUTFIT_SLOT].m_pIItem);		
-		UIOutfitInfo.Update				(outfit);		
+		UIOutfitInfo.Update				(outfit);
+
+		// Refresh displayed carry weight while timed bonuses expire.
+		UpdateWeight					(UIBagWnd, true);		
 	}
 
 	UIStaticTimeString.SetText(*InventoryUtilities::GetGameTimeAsString(InventoryUtilities::etpTimeToMinutes));

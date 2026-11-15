@@ -1,6 +1,7 @@
 #include "pch_script.h"
 #include "inventory.h"
 #include "actor.h"
+#include "entity_alive.h"
 #include "trade.h"
 #include "weapon.h"
 
@@ -92,6 +93,10 @@ float CInventory::GetMaxWeight() const
 	CActor* actor = smart_cast<CActor*>(m_pOwner);
 	if (actor)
 		result += actor->ArtefactAdditionalWeight();
+
+	CEntityAlive* entity_alive = smart_cast<CEntityAlive*>(m_pOwner);
+	if (entity_alive)
+		result += entity_alive->conditions().GetTimedBoostWeight();
 
 	return result;
 }

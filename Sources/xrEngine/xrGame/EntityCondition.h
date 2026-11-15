@@ -55,7 +55,11 @@ public:
 	void 					ChangeRadiation			(float value);
 	void 					ChangePsyHealth			(float value);
 	virtual void 			ChangeAlcohol			(float value){};
-	void					AddTimedConditionEffect	(float duration, float health, float power, float satiety, float radiation, float psy_health, float bleeding, float max_power);
+	void					AddTimedConditionEffect	(float duration, float health, float power, float satiety, float radiation, float psy_health, float bleeding, float max_power, float boost_weight, float boost_radiation_protection, float boost_chemical_protection, float boost_psy_protection);
+	float				GetTimedBoostWeight		() const;
+	float				GetTimedBoostRadiationProtection	() const;
+	float				GetTimedBoostChemicalProtection	() const;
+	float				GetTimedBoostPsyProtection	() const;
 	IC void					MaxPower				()					{m_fPower = m_fPowerMax;};
 	IC void					SetMaxPower				(float val)			{m_fPowerMax = val; clamp(m_fPowerMax,0.1f,1.0f);};
 	IC float				GetMaxPower				() const			{return m_fPowerMax;};
@@ -96,6 +100,10 @@ protected:
 		float		m_fPsyHealthLeft;
 		float		m_fBleedingLeft;
 		float		m_fMaxPowerLeft;
+		float		m_fBoostWeight;
+		float		m_fBoostRadiationProtection;
+		float		m_fBoostChemicalProtection;
+		float		m_fBoostPsyProtection;
 	};
 	xr_vector<STimedConditionEffect>	m_timedConditionEffects;
 	void				UpdateTimedConditionEffects();

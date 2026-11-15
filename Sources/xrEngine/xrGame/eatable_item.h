@@ -40,6 +40,10 @@ protected:
 	float					m_fMaxPowerUpInfluence;
 	float					m_fPsyHealthInfluence;
 	float					m_fBoostTime;
+	float					m_fBoostWeight;
+	float					m_fBoostRadiationProtection;
+	float					m_fBoostChemicalProtection;
+	float					m_fBoostPsyProtection;
 	//заживление ран на кол-во процентов
 	float					m_fWoundsHealPerc;
 

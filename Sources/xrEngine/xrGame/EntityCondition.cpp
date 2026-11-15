@@ -18,7 +18,8 @@
 #define MAX_RADIATION 1.0f
 #define MAX_PSY_HEALTH 1.0f
 
-static const u32 BOOST_TIME_SAVE_MAGIC = 0x31545342u; // BST1
+static const u32 BOOST_TIME_SAVE_MAGIC_V1 = 0x31545342u; // BST1 - timed condition effects only
+static const u32 BOOST_TIME_SAVE_MAGIC_V2 = 0x32545342u; // BST2 - timed effects and temporary bonuses
 
 CEntityConditionSimple::CEntityConditionSimple()
 {
@@ -163,26 +164,63 @@ void CEntityCondition::ChangePsyHealth(float value)
 }
 
 
-void CEntityCondition::AddTimedConditionEffect(float duration, float health, float power, float satiety, float radiation, float psy_health, float bleeding, float max_power)
+void CEntityCondition::AddTimedConditionEffect(float duration, float health, float power, float satiety, float radiation, float psy_health, float bleeding, float max_power, float boost_weight, float boost_radiation_protection, float boost_chemical_protection, float boost_psy_protection)
 {
 	if (duration <= 0.0f)
 		return;
 
 	STimedConditionEffect effect;
-	effect.m_fTimeLeft		= duration;
-	effect.m_fHealthLeft	= health;
+	effect.m_fTimeLeft			= duration;
+	effect.m_fHealthLeft		= health;
 	effect.m_fPowerLeft		= power;
-	effect.m_fSatietyLeft	= satiety;
+	effect.m_fSatietyLeft		= satiety;
 	effect.m_fRadiationLeft	= radiation;
 	effect.m_fPsyHealthLeft	= psy_health;
 	effect.m_fBleedingLeft	= bleeding;
 	effect.m_fMaxPowerLeft	= max_power;
+	effect.m_fBoostWeight		= boost_weight;
+	effect.m_fBoostRadiationProtection = boost_radiation_protection;
+	effect.m_fBoostChemicalProtection = boost_chemical_protection;
+	effect.m_fBoostPsyProtection	= boost_psy_protection;
 
 	if (fis_zero(health) && fis_zero(power) && fis_zero(satiety) && fis_zero(radiation) &&
-		fis_zero(psy_health) && fis_zero(bleeding) && fis_zero(max_power))
+		fis_zero(psy_health) && fis_zero(bleeding) && fis_zero(max_power) && fis_zero(boost_weight) &&
+		fis_zero(boost_radiation_protection) && fis_zero(boost_chemical_protection) && fis_zero(boost_psy_protection))
 		return;
 
 	m_timedConditionEffects.push_back(effect);
+}
+
+float CEntityCondition::GetTimedBoostWeight() const
+{
+	float result = 0.0f;
+	for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+		result += m_timedConditionEffects[i].m_fBoostWeight;
+	return result;
+}
+
+float CEntityCondition::GetTimedBoostRadiationProtection() const
+{
+	float result = 0.0f;
+	for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+		result += m_timedConditionEffects[i].m_fBoostRadiationProtection;
+	return _min(result, 1.0f);
+}
+
+float CEntityCondition::GetTimedBoostChemicalProtection() const
+{
+	float result = 0.0f;
+	for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+		result += m_timedConditionEffects[i].m_fBoostChemicalProtection;
+	return _min(result, 1.0f);
+}
+
+float CEntityCondition::GetTimedBoostPsyProtection() const
+{
+	float result = 0.0f;
+	for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
+		result += m_timedConditionEffects[i].m_fBoostPsyProtection;
+	return _min(result, 1.0f);
 }
 
 void CEntityCondition::UpdateTimedConditionEffects()
@@ -382,23 +420,44 @@ void CEntityCondition::UpdateCondition()
 
 float CEntityCondition::HitOutfitEffect(float hit_power, ALife::EHitType hit_type, s16 element, float AP)
 {
-    CInventoryOwner* pInvOwner		= smart_cast<CInventoryOwner*>(m_object);
-	if(!pInvOwner)					return hit_power;
+    CInventoryOwner* pInvOwner = smart_cast<CInventoryOwner*>(m_object);
+    CCustomOutfit* pOutfit = pInvOwner ? (CCustomOutfit*)pInvOwner->inventory().m_slots[OUTFIT_SLOT].m_pIItem : NULL;
 
-	CCustomOutfit* pOutfit			= (CCustomOutfit*)pInvOwner->inventory().m_slots[OUTFIT_SLOT].m_pIItem;
-	if(!pOutfit)					return hit_power;
+    float new_hit_power = hit_power;
 
-	float new_hit_power				= hit_power;
+    if (pOutfit)
+    {
+        if (hit_type == ALife::eHitTypeFireWound)
+            new_hit_power = pOutfit->HitThruArmour(hit_power, element, AP);
+        else
+            new_hit_power *= pOutfit->GetHitTypeProtection(hit_type, element);
 
-	if (hit_type == ALife::eHitTypeFireWound)
-		new_hit_power				= pOutfit->HitThruArmour(hit_power, element, AP);
-	else
-		new_hit_power				*= pOutfit->GetHitTypeProtection(hit_type,element);
-	
-	//увеличить изношенность костюма
-	pOutfit->Hit					(hit_power, hit_type);
+        // Increase outfit wear only when an outfit is actually equipped.
+        pOutfit->Hit(hit_power, hit_type);
+    }
 
-	return							new_hit_power;
+    // Temporary consumable protection is independent of outfit protection.
+    // Values are protection fractions: 0.25 means 25% less incoming damage.
+    float boost_protection = 0.0f;
+    switch (hit_type)
+    {
+    case ALife::eHitTypeRadiation:
+        boost_protection = GetTimedBoostRadiationProtection();
+        break;
+    case ALife::eHitTypeChemicalBurn:
+        boost_protection = GetTimedBoostChemicalProtection();
+        break;
+    case ALife::eHitTypeTelepatic:
+        boost_protection = GetTimedBoostPsyProtection();
+        break;
+    default:
+        break;
+    }
+
+    if (boost_protection > 0.0f)
+        new_hit_power *= (1.0f - boost_protection);
+
+    return new_hit_power;
 }
 
 float CEntityCondition::HitPowerEffect(float power_loss)
@@ -610,7 +669,7 @@ void CEntityCondition::save(NET_Packet& output_packet)
 		// boost_time: save active effects
 		VERIFY(m_timedConditionEffects.size() <= 255);
 
-		output_packet.w_u32(BOOST_TIME_SAVE_MAGIC);
+		output_packet.w_u32(BOOST_TIME_SAVE_MAGIC_V2);
 		output_packet.w_u8((u8)m_timedConditionEffects.size());
 
 		for (u32 i = 0; i < m_timedConditionEffects.size(); ++i)
@@ -625,6 +684,10 @@ void CEntityCondition::save(NET_Packet& output_packet)
 			save_data(effect.m_fPsyHealthLeft, output_packet);
 			save_data(effect.m_fBleedingLeft, output_packet);
 			save_data(effect.m_fMaxPowerLeft, output_packet);
+			save_data(effect.m_fBoostWeight, output_packet);
+			save_data(effect.m_fBoostRadiationProtection, output_packet);
+			save_data(effect.m_fBoostChemicalProtection, output_packet);
+			save_data(effect.m_fBoostPsyProtection, output_packet);
 		}
 	}
 }
@@ -658,18 +721,18 @@ void CEntityCondition::load(IReader& input_packet)
 			}
 		}
 
-		// boost_time: restore active effects
+		// boost_time: restore active effects and temporary bonuses.
+		// BST1 saves contain 8 floats per effect; BST2 saves contain 12.
 		if (input_packet.elapsed() >= (int)sizeof(u32))
 		{
 			int save_position = input_packet.tell();
-
 			u32 magic = input_packet.r_u32();
 
-			if (magic == BOOST_TIME_SAVE_MAGIC && input_packet.elapsed() >= 1)
+			if ((magic == BOOST_TIME_SAVE_MAGIC_V1 || magic == BOOST_TIME_SAVE_MAGIC_V2) && input_packet.elapsed() >= 1)
 			{
 				u8 effect_count = input_packet.r_u8();
-
-				const u32 effect_size = 8u * sizeof(float);
+				bool has_timed_bonuses = (magic == BOOST_TIME_SAVE_MAGIC_V2);
+				const u32 effect_size = (has_timed_bonuses ? 12u : 8u) * sizeof(float);
 
 				if (input_packet.elapsed() >= (int)(effect_count * effect_size))
 				{
@@ -687,6 +750,21 @@ void CEntityCondition::load(IReader& input_packet)
 						load_data(effect.m_fPsyHealthLeft, input_packet);
 						load_data(effect.m_fBleedingLeft, input_packet);
 						load_data(effect.m_fMaxPowerLeft, input_packet);
+						
+						if (has_timed_bonuses)
+						{
+							load_data(effect.m_fBoostWeight, input_packet);
+							load_data(effect.m_fBoostRadiationProtection, input_packet);
+							load_data(effect.m_fBoostChemicalProtection, input_packet);
+							load_data(effect.m_fBoostPsyProtection, input_packet);
+						}
+						else
+						{
+							effect.m_fBoostWeight = 0.0f;
+							effect.m_fBoostRadiationProtection = 0.0f;
+							effect.m_fBoostChemicalProtection = 0.0f;
+							effect.m_fBoostPsyProtection = 0.0f;
+						}
 					}
 				}
 				else

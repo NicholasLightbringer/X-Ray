@@ -4,6 +4,7 @@
 #include "UIStatic.h"
 #include "UIScrollView.h"
 #include "../actor.h"
+#include "../ActorCondition.h"
 #include "../CustomOutfit.h"
 #include "../string_table.h"
 
@@ -88,6 +89,7 @@ void CUIOutfitInfo::SetItem(u32 hitType, bool force_add)
 	string128 _buff;
 	float _val_outfit	= 0.0f;
 	float _val_af		= 0.0f;
+	float _val_boost	= 0.0f;
 
 	CUIStatic* _s		= m_items[hitType];
 
@@ -98,7 +100,23 @@ void CUIOutfitInfo::SetItem(u32 hitType, bool force_add)
 	_val_af				= Actor()->HitArtefactsOnBelt(1.0f,ALife::EHitType(hitType));
 	_val_af				= 1.0f - _val_af;
 
-	if(fsimilar(_val_outfit, 0.0f) && fsimilar(_val_af, 0.0f) && !force_add)
+	// Temporary protection from consumables is displayed separately.
+	switch (hitType)
+	{
+	case ALife::eHitTypeRadiation:
+		_val_boost = Actor()->conditions().GetTimedBoostRadiationProtection();
+		break;
+	case ALife::eHitTypeChemicalBurn:
+		_val_boost = Actor()->conditions().GetTimedBoostChemicalProtection();
+		break;
+	case ALife::eHitTypeTelepatic:
+		_val_boost = Actor()->conditions().GetTimedBoostPsyProtection();
+		break;
+	default:
+		break;
+	}
+
+	if(fsimilar(_val_outfit, 0.0f) && fsimilar(_val_af, 0.0f) && fsimilar(_val_boost, 0.0f) && !force_add)
 	{
 		if(_s->GetParent()!=NULL)
 			m_listWnd->RemoveWindow(_s);
@@ -114,6 +132,10 @@ void CUIOutfitInfo::SetItem(u32 hitType, bool force_add)
 	if( !fsimilar(_val_af, 0.0f) )
 	{
 		_sz		+= sprintf_s	(_buff+_sz,sizeof(_buff)-_sz,"%s %+3.0f%%", (_val_af>0.0f)?"%c[green]":"%c[red]", _val_af*100.0f);
+	}
+	if( !fsimilar(_val_boost, 0.0f) )
+	{
+		_sz		+= sprintf_s	(_buff+_sz,sizeof(_buff)-_sz,"%s %+3.0f%%", (_val_boost>0.0f)?"%c[green]":"%c[red]", _val_boost*100.0f);
 	}
 	_s->SetText			(_buff);
 

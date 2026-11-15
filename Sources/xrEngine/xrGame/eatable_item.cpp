@@ -25,6 +25,10 @@ CEatableItem::CEatableItem()
 	m_fRadiationInfluence = 0;
 	m_fPsyHealthInfluence = 0;
 	m_fBoostTime = 0;
+	m_fBoostWeight = 0.0f;
+	m_fBoostRadiationProtection = 0.0f;
+	m_fBoostChemicalProtection = 0.0f;
+	m_fBoostPsyProtection = 0.0f;
 	m_iPortionsNum = -1;
 
 	m_physic_item	= 0;
@@ -59,6 +63,32 @@ void CEatableItem::Load(LPCSTR section)
 	m_fMaxPowerUpInfluence		= READ_IF_EXISTS	(pSettings,r_float,section,"eat_max_power",0.0f);
 	m_fPsyHealthInfluence		= READ_IF_EXISTS	(pSettings,r_float,section,"eat_psy_health",0.0f);
 	m_fBoostTime				= READ_IF_EXISTS	(pSettings,r_float,section,"boost_time",0.0f);
+
+	// Temporary consumable bonuses. CoP-style aliases are accepted as well.
+	if (pSettings->line_exist(section, "boost_weight"))
+		m_fBoostWeight = pSettings->r_float(section, "boost_weight");
+	else
+		m_fBoostWeight = READ_IF_EXISTS(pSettings, r_float, section, "boost_max_weight", 0.0f);
+
+	m_fBoostRadiationProtection = READ_IF_EXISTS(pSettings, r_float, section, "boost_radiation_protection", 0.0f);
+
+	if (pSettings->line_exist(section, "boost_chemical_protection"))
+		m_fBoostChemicalProtection = pSettings->r_float(section, "boost_chemical_protection");
+	else if (pSettings->line_exist(section, "boost_chemburn_protection"))
+		m_fBoostChemicalProtection = pSettings->r_float(section, "boost_chemburn_protection");
+	else
+		m_fBoostChemicalProtection = READ_IF_EXISTS(pSettings, r_float, section, "boost_chemical_burn_protection", 0.0f);
+
+	if (pSettings->line_exist(section, "boost_psy_protection"))
+		m_fBoostPsyProtection = pSettings->r_float(section, "boost_psy_protection");
+	else
+		m_fBoostPsyProtection = READ_IF_EXISTS(pSettings, r_float, section, "boost_telepat_protection", 0.0f);
+
+	// Protection values represent fractions and cannot be negative or exceed 100%.
+	if (m_fBoostWeight < 0.0f) m_fBoostWeight = 0.0f;
+	clamp(m_fBoostRadiationProtection, 0.0f, 1.0f);
+	clamp(m_fBoostChemicalProtection, 0.0f, 1.0f);
+	clamp(m_fBoostPsyProtection, 0.0f, 1.0f);
 	VERIFY						(m_iPortionsNum<10000);
 }
 
@@ -127,7 +157,11 @@ void CEatableItem::UseBy (CEntityAlive* entity_alive)
 			m_fRadiationInfluence,
 			m_fPsyHealthInfluence,
 			m_fWoundsHealPerc,
-			m_fMaxPowerUpInfluence
+			m_fMaxPowerUpInfluence,
+			m_fBoostWeight,
+			m_fBoostRadiationProtection,
+			m_fBoostChemicalProtection,
+			m_fBoostPsyProtection
 		);
 	}
 	else
