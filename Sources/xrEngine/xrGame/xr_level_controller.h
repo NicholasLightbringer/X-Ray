@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 enum	EGameActions
 {
@@ -94,6 +94,10 @@ enum	EGameActions
 
 	kQUICK_SAVE,
 	kQUICK_LOAD,
+
+	kHUD_HIDE,
+	kHUD_SHOW,
+	kMINIMAP_TOGGLE,
 
 	kLASTACTION,
 	kNOTBINDED,

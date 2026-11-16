@@ -21,6 +21,7 @@
 #include "../alife_object_registry.h"
 #include "../game_cl_base.h"
 #include "../level.h"
+#include "../xr_level_controller.h"
 #include "../seniority_hierarchy_holder.h"
 
 #include "../date_time.h"
@@ -871,35 +872,42 @@ bool CUIMainIngameWnd::OnKeyboardPress(int dik)
 		}
 #endif		
 
-	if(Level().IR_GetKeyState(DIK_LSHIFT) || Level().IR_GetKeyState(DIK_RSHIFT))
+	// Preserve the original keypad zoom shortcut while Shift is held.
+	if (Level().IR_GetKeyState(DIK_LSHIFT) || Level().IR_GetKeyState(DIK_RSHIFT))
 	{
-		switch(dik)
+		switch (dik)
 		{
-		case DIK_NUMPADMINUS:
+		case DIK_SUBTRACT:
 			UIZoneMap->ZoomOut();
 			return true;
-			break;
-		case DIK_NUMPADPLUS:
+		case DIK_ADD:
 			UIZoneMap->ZoomIn();
 			return true;
-			break;
 		}
 	}
-	else
+
+	EGameActions action = get_binded_action(dik);
+
+	// Keep legacy default behavior if the user has not assigned these keys yet.
+	if (action == kNOTBINDED)
 	{
-		switch(dik)
-		{
-		case DIK_NUMPADMINUS:
-			//.HideAll();
-			HUD().GetUI()->HideGameIndicators();
-			return true;
-			break;
-		case DIK_NUMPADPLUS:
-			//.ShowAll();
-			HUD().GetUI()->ShowGameIndicators();
-			return true;
-			break;
-		}
+		if (dik == DIK_SUBTRACT)
+			action = kHUD_HIDE;
+		else if (dik == DIK_ADD)
+			action = kHUD_SHOW;
+	}
+
+	switch (action)
+	{
+	case kHUD_HIDE:
+		HUD().GetUI()->HideGameIndicators();
+		return true;
+	case kHUD_SHOW:
+		HUD().GetUI()->ShowGameIndicators();
+		return true;
+	case kMINIMAP_TOGGLE:
+		UIZoneMap->ToggleVisible();
+		return true;
 	}
 
 	return false;

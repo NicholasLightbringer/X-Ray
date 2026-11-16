@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include <dinput.h>
 #include "../xr_ioconsole.h"
 #include "../xr_input.h"
@@ -103,7 +103,10 @@ _action  actions[]		= {
 	{ "unload_all_weapons", kUNLOAD_ALL_WEAPONS, _sp },
 
 	{ "quick_save",			kQUICK_SAVE				,_sp},		
-	{ "quick_load",			kQUICK_LOAD				,_sp},		
+	{ "quick_load",			kQUICK_LOAD				,_sp},
+	{ "hud_hide",				kHUD_HIDE				,_both},
+	{ "hud_show",				kHUD_SHOW				,_both},
+	{ "minimap_toggle",		kMINIMAP_TOGGLE		,_both},		
 																
 	{ NULL, 				kLASTACTION				,_both}		
 };															

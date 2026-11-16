@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 
 #include "ui/UIStatic.h"
@@ -12,6 +12,7 @@ class CUIZoneMap
 {
 	CUICustomMap*				m_activeMap;
 	float						m_fScale;
+	bool						m_bVisible;
 
 	CUIStatic					m_background;
 	CUIStatic					m_center;
@@ -27,6 +28,9 @@ public:
 	void						Init			();
 
 	void						Render			();
+	void					Show(bool show) { m_bVisible = show; }
+	void					ToggleVisible();
+	bool					IsVisible() const { return m_bVisible; }
 	void						UpdateRadar		(Fvector pos);
 
 	void						SetScale		(float s)							{m_fScale = s;}

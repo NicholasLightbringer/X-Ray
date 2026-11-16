@@ -1,4 +1,4 @@
-#include "stdafx.h"
+﻿#include "stdafx.h"
 #include "uizonemap.h"
 
 #include "hudmanager.h"
@@ -20,7 +20,9 @@
 //////////////////////////////////////////////////////////////////////////
 
 CUIZoneMap::CUIZoneMap()
-{}
+{
+	m_bVisible = true;
+}
 
 CUIZoneMap::~CUIZoneMap()
 {
@@ -63,9 +65,17 @@ void CUIZoneMap::Init()
 
 void CUIZoneMap::Render			()
 {
+	if (!m_bVisible)
+		return;
+
 	m_clipFrame.Draw	();
 	m_background.Draw	();
 	m_compass.Draw		();
+}
+
+void CUIZoneMap::ToggleVisible()
+{
+	m_bVisible = !m_bVisible;
 }
 
 void CUIZoneMap::SetHeading		(float angle)
@@ -76,6 +86,9 @@ void CUIZoneMap::SetHeading		(float angle)
 
 void CUIZoneMap::UpdateRadar		(Fvector pos)
 {
+	if (!m_bVisible)
+		return;
+
 	m_clipFrame.Update();
 	m_background.Update();
 	m_activeMap->SetActivePoint( pos );

@@ -1,4 +1,4 @@
-#include "StdAfx.h"
+﻿#include "StdAfx.h"
 #include "UIKeyBinding.h"
 #include "UIXmlInit.h"
 #include "xrUIXmlParser.h"
@@ -91,6 +91,50 @@ void CUIKeyBinding::FillUpList(CUIXml& xml_doc_ui, LPCSTR path_ui)
 		}
 		xml_doc.SetLocalRoot				(xml_doc.GetRoot());
 	}
+
+	// Extra HUD actions are added in code because ui_keybinding.xml is game data,
+	// not part of the source archive.
+	CUIStatic* pHudGroup = xr_new<CUIStatic>();
+	CUIXmlInit::InitStatic(xml_doc_ui, strconcat(sizeof(buf), buf, path_ui, ":scroll_view:item_group"), 0, pHudGroup);
+	pHudGroup->SetText("HUD controls");
+	m_scroll_wnd->AddWindow(pHudGroup, true);
+
+	struct SHudBinding
+	{
+		LPCSTR action;
+		LPCSTR title;
+	};
+	static const SHudBinding hud_bindings[] =
+	{
+		{ "hud_hide", "Hide HUD" },
+		{ "hud_show", "Show HUD" },
+		{ "minimap_toggle", "Toggle mini-map" }
+	};
+
+	const u32 hud_binding_count = (u32)(sizeof(hud_bindings) / sizeof(hud_bindings[0]));
+	for (u32 i = 0; i < hud_binding_count; ++i)
+	{
+		CUIStatic* pHudItem = xr_new<CUIStatic>();
+		CUIXmlInit::InitStatic(xml_doc_ui, strconcat(sizeof(buf), buf, path_ui, ":scroll_view:item_key"), 0, pHudItem);
+		pHudItem->SetText(hud_bindings[i].title);
+		m_scroll_wnd->AddWindow(pHudItem, true);
+
+		float item_width = m_header[1].GetWidth() - 3.0f;
+		float item_pos = m_header[1].GetWndPos().x;
+		CUIEditKeyBind* pEditKB = xr_new<CUIEditKeyBind>(true);
+		pEditKB->SetAutoDelete(true);
+		pEditKB->Init(item_pos, 0, item_width, pHudItem->GetWndSize().y);
+		pEditKB->Register(hud_bindings[i].action, "key_binding");
+		pHudItem->AttachChild(pEditKB);
+
+		item_width = m_header[2].GetWidth() - 3.0f;
+		item_pos = m_header[2].GetWndPos().x;
+		pEditKB = xr_new<CUIEditKeyBind>(false);
+		pEditKB->SetAutoDelete(true);
+		pEditKB->Init(item_pos, 0, item_width, pHudItem->GetWndSize().y);
+		pEditKB->Register(hud_bindings[i].action, "key_binding");
+		pHudItem->AttachChild(pEditKB);
+	}
 #ifdef DEBUG
     CheckStructure							(xml_doc);
 #endif
@@ -107,6 +151,12 @@ void CUIKeyBinding::CheckStructure(CUIXml& xml_doc)
 		LPCSTR action_name = actions[i].action_name;
 		if (action_name)
 		{
+			// These are appended dynamically in FillUpList above.
+			if (0 == xr_strcmp(action_name, "hud_hide") ||
+				0 == xr_strcmp(action_name, "hud_show") ||
+				0 == xr_strcmp(action_name, "minimap_toggle"))
+				continue;
+
 			if (IsActionExist(action_name, xml_doc))
 				continue;
 			else
