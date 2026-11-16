@@ -49,7 +49,13 @@ enum
 };
 
 // R2
-extern ECORE_API	u32			ps_r2_water_reflections;
+enum
+{
+	R2FLAG_WATER_REFLECTIONS = (1 << 0),
+	R2FLAG_GLOW_SHOW = (1 << 0),
+};
+extern ECORE_API	Flags32		ps_r2_water_reflections;
+extern ECORE_API	Flags32		ps_r2_glow_show;
 extern ECORE_API	float		ps_r2_ssaLOD_A;
 extern ECORE_API	float		ps_r2_ssaLOD_B;
 extern ECORE_API	float		ps_r2_tf_Mipbias;
@@ -132,5 +138,4 @@ extern void						xrRender_apply_tf		();
 
 #endif
 
-extern ECORE_API u32 ps_r2_glow_show;
 extern ECORE_API float ps_r2_selflight_intensity;

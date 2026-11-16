@@ -117,7 +117,7 @@ void CRender::render_main	(Fmatrix&	m_ViewProjection, bool _fportals)
 					IRenderable*	renderable		= spatial->dcast_Renderable	();
                     if (!renderable) {
                         CGlow* glow = dynamic_cast<CGlow*>(spatial);
-                        if (glow && L_Glows && ps_r2_glow_show) L_Glows->add(glow);
+                        if (glow && L_Glows && ps_r2_glow_show.test(R2FLAG_GLOW_SHOW)) L_Glows->add(glow);
                         break;
                     }
 
@@ -160,7 +160,7 @@ void CRender::render_water_reflection()
 	// The console toggle disables only the custom planar capture. Keeping the
 	// validity flag false makes the water shader use its original cubemap fallback.
 	bWaterReflectionValid = FALSE;
-	if (!ps_r2_water_reflections) return;
+	if (!ps_r2_water_reflections.test(R2FLAG_WATER_REFLECTIONS)) return;
 	// The reflection may be temporarily unavailable while the camera is underwater
 	// or the water plane drops out of the visibility list. Keep the last known plane
 	// separately from per-frame texture validity so we can reacquire it on return.
@@ -578,7 +578,7 @@ void CRender::render_forward				()
 		r_dsgraph_render_graph					(1)	;					// normal level, secondary priority
 		PortalTraverser.fade_render				()	;					// faded-portals
 		r_dsgraph_render_sorted					()	;
-		if (L_Glows && ps_r2_glow_show) L_Glows->Render();					// strict-sorted geoms
+		if (L_Glows && ps_r2_glow_show.test(R2FLAG_GLOW_SHOW)) L_Glows->Render();					// strict-sorted geoms
 		g_pGamePersistent->Environment().RenderLast()	;					// rain/thunder-bolts
 	}
 

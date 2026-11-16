@@ -5,11 +5,9 @@
 
 u32			ps_Preset				=	2	;
 
-u32			ps_r2_water_reflections	=	1;
-xr_token						r2_water_reflections_token[] = { { "off", 0 }, { "0", 0 }, { "on", 1 }, { "1", 1 }, { 0, 0 } };
-
-u32 ps_r2_glow_show = 1;
-xr_token r2_glow_show_token[] = { { "off", 0 }, { "0", 0 }, { "on", 1 }, { "1", 1 }, { 0, 0 } };
+// Binary R2 options use Flags32 so that CCC_Mask and the Options UI can read them.
+Flags32 ps_r2_water_reflections = { R2FLAG_WATER_REFLECTIONS };
+Flags32 ps_r2_glow_show = { R2FLAG_GLOW_SHOW };
 // Multiplier for R2 emissive/selflight materials: 1.0 preserves the original intensity.
 float ps_r2_selflight_intensity = 1.0f;
 xr_token							qpreset_token							[ ]={
@@ -312,10 +310,10 @@ void		xrRender_initconsole	()
 	CMD4(CCC_Float,		"r2_ssa_lod_a",			&ps_r2_ssaLOD_A,			16,		96		);
 	CMD4(CCC_Float,		"r2_ssa_lod_b",			&ps_r2_ssaLOD_B,			32,		64		);
 	CMD2(CCC_tf_MipBias,"r2_tf_mipbias",		&ps_r2_tf_Mipbias			);
-
+	
 	// R2-specific
-	CMD3(CCC_Token,	"r2_water_reflections",	&ps_r2_water_reflections,	r2_water_reflections_token);
-	CMD3(CCC_Token, "r2_glow_show", &ps_r2_glow_show, r2_glow_show_token);
+	CMD3(CCC_Mask,	"r2_water_reflections",	&ps_r2_water_reflections,	R2FLAG_WATER_REFLECTIONS);
+	CMD3(CCC_Mask, "r2_glow_show", &ps_r2_glow_show, R2FLAG_GLOW_SHOW);
 	CMD4(CCC_Float, "r2_selflight_intensity", &ps_r2_selflight_intensity, 0.0f, 4.0f);
 	CMD2(CCC_R2GM,		"r2em",					&ps_r2_gmaterial							);
 	CMD3(CCC_Mask,		"r2_tonemap",			&ps_r2_ls_flags,			R2FLAG_TONEMAP	);
