@@ -8,6 +8,11 @@ LRESULT CALLBACK WndProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam )
 {
 	switch(uMsg)
 	{
+	case WM_XRAY_FIX_BORDERLESS_POSITION:
+		if (psDeviceFlags.is(rsBorderless) && !psDeviceFlags.is(rsFullscreen))
+			HW.updateBorderlessPosition(hWnd);
+		return 0;
+
 	case WM_ACTIVATE:
 		{
 			Device.OnWM_Activate			(wParam, lParam);

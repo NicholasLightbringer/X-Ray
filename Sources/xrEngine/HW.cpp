@@ -145,6 +145,27 @@ void	CHW::DestroyDevice	()
 	free_vid_mode_list		();
 #endif
 }
+static BOOL GetPrimaryMonitorBounds(RECT& bounds)
+{
+	POINT primaryOrigin;
+	primaryOrigin.x = 0;
+	primaryOrigin.y = 0;
+
+	HMONITOR monitor = MonitorFromPoint(primaryOrigin, MONITOR_DEFAULTTOPRIMARY);
+	if (!monitor)
+		return FALSE;
+
+	MONITORINFO monitorInfo;
+	ZeroMemory(&monitorInfo, sizeof(monitorInfo));
+	monitorInfo.cbSize = sizeof(monitorInfo);
+
+	if (!GetMonitorInfo(monitor, &monitorInfo))
+		return FALSE;
+
+	bounds = monitorInfo.rcMonitor;
+	return TRUE;
+}
+
 void	CHW::selectResolution	(u32 &dwWidth, u32 &dwHeight, BOOL bWindowed)
 {
 	fill_vid_mode_list			(this);
@@ -156,10 +177,19 @@ void	CHW::selectResolution	(u32 &dwWidth, u32 &dwHeight, BOOL bWindowed)
 	{
 		if (psDeviceFlags.is(rsBorderless))
 		{
-			RECT DesktopRect;
-			GetClientRect(GetDesktopWindow(), &DesktopRect);
-			dwWidth		= DesktopRect.right - DesktopRect.left;
-			dwHeight	= DesktopRect.bottom - DesktopRect.top;
+			RECT MonitorRect;
+			if (GetPrimaryMonitorBounds(MonitorRect))
+			{
+				dwWidth		= MonitorRect.right - MonitorRect.left;
+				dwHeight	= MonitorRect.bottom - MonitorRect.top;
+			}
+			else
+			{
+				RECT DesktopRect;
+				GetClientRect(GetDesktopWindow(), &DesktopRect);
+				dwWidth		= DesktopRect.right - DesktopRect.left;
+				dwHeight	= DesktopRect.bottom - DesktopRect.top;
+			}
 		}
 		else
 		{
@@ -440,6 +470,32 @@ BOOL	CHW::support	(D3DFORMAT fmt, DWORD type, DWORD usage)
 	else			return TRUE;
 }
 
+void CHW::updateBorderlessPosition(HWND hwnd)
+{
+	if (!hwnd)
+		return;
+
+	RECT monitorRect;
+	if (!GetPrimaryMonitorBounds(monitorRect))
+	{
+		RECT desktopRect;
+		if (!GetClientRect(GetDesktopWindow(), &desktopRect))
+			return;
+
+		SetRect(&monitorRect, 0, 0, desktopRect.right, desktopRect.bottom);
+	}
+
+	SetWindowPos(
+		hwnd,
+		HWND_TOP,
+		monitorRect.left,
+		monitorRect.top,
+		monitorRect.right - monitorRect.left,
+		monitorRect.bottom - monitorRect.top,
+		SWP_SHOWWINDOW | SWP_NOCOPYBITS | SWP_FRAMECHANGED | SWP_NOOWNERZORDER | SWP_NOACTIVATE
+	);
+}
+
 void	CHW::updateWindowProps	(HWND m_hWnd)
 {
 //	BOOL	bWindowed				= strstr(Core.Params,"-dedicated") ? TRUE : !psDeviceFlags.is	(rsFullscreen);
@@ -454,13 +510,11 @@ void	CHW::updateWindowProps	(HWND m_hWnd)
 	if (bWindowed)		{
 		if (psDeviceFlags.is(rsBorderless))
 		{
-			RECT DesktopRect;
-			GetClientRect(GetDesktopWindow(), &DesktopRect);
 			SetWindowLong(m_hWnd, GWL_STYLE, dwWindowStyle=(WS_POPUP|WS_VISIBLE));
-			SetWindowPos(m_hWnd, HWND_TOP, 0, 0,
-				DesktopRect.right - DesktopRect.left,
-				DesktopRect.bottom - DesktopRect.top,
-				SWP_SHOWWINDOW|SWP_NOCOPYBITS|SWP_FRAMECHANGED);
+
+			// Apply monitor bounds now and repeat after startup message dispatch begins.
+			updateBorderlessPosition(m_hWnd);
+			PostMessage(m_hWnd, WM_XRAY_FIX_BORDERLESS_POSITION, 0, 0);
 		}
 		else
 		{

@@ -6,6 +6,8 @@
 #define AFX_HW_H__0E25CF4A_FFEC_11D3_B4E3_4854E82A090D__INCLUDED_
 #pragma once
 
+#define WM_XRAY_FIX_BORDERLESS_POSITION (WM_APP + 0x135)
+
 #include "hwcaps.h"
 
 class ENGINE_API CHW
@@ -46,6 +48,7 @@ public:
 	u32						selectGPU				();
 	u32						selectRefresh			(u32 dwWidth, u32 dwHeight, D3DFORMAT fmt);
 	void					updateWindowProps		(HWND hw);
+	void					updateBorderlessPosition	(HWND hw);
 	BOOL					support					(D3DFORMAT fmt, DWORD type, DWORD usage);
 
 #ifdef DEBUG
