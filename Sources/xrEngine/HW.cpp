@@ -45,7 +45,7 @@ void CHW::Reset		(HWND hwnd)
 	// Windoze
 	DevPP.SwapEffect			= bWindowed?D3DSWAPEFFECT_COPY:D3DSWAPEFFECT_DISCARD;
 	DevPP.Windowed				= bWindowed;
-	DevPP.PresentationInterval	= D3DPRESENT_INTERVAL_IMMEDIATE;
+	DevPP.PresentationInterval	= selectPresentInterval();
 	if( !bWindowed )		DevPP.FullScreen_RefreshRateInHz	= selectRefresh	(DevPP.BackBufferWidth,DevPP.BackBufferHeight,Caps.fTarget);
 	else					DevPP.FullScreen_RefreshRateInHz	= D3DPRESENT_RATE_DEFAULT;
 #endif
@@ -309,7 +309,7 @@ void		CHW::CreateDevice		(HWND m_hWnd)
 	P.Flags					= 0;	//. D3DPRESENTFLAG_DISCARD_DEPTHSTENCIL;
 
 	// Refresh rate
-	P.PresentationInterval	= D3DPRESENT_INTERVAL_IMMEDIATE;
+	P.PresentationInterval	= selectPresentInterval();
     if( !bWindowed )		P.FullScreen_RefreshRateInHz	= selectRefresh	(P.BackBufferWidth, P.BackBufferHeight,fTarget);
     else					P.FullScreen_RefreshRateInHz	= D3DPRESENT_RATE_DEFAULT;
 
@@ -376,15 +376,24 @@ u32	CHW::selectPresentInterval	()
 	D3DCAPS9	caps;
 	pD3D->GetDeviceCaps(DevAdapter,DevT,&caps);
 
-	if (!psDeviceFlags.test(rsVSync)) 
+	// VSync: wait for every vertical refresh when supported.
+	if (psDeviceFlags.test(rsVSync))
 	{
-		if (caps.PresentationIntervals & D3DPRESENT_INTERVAL_IMMEDIATE)
-			return D3DPRESENT_INTERVAL_IMMEDIATE;
 		if (caps.PresentationIntervals & D3DPRESENT_INTERVAL_ONE)
 			return D3DPRESENT_INTERVAL_ONE;
+
+		// DEFAULT is also synchronized; use it as a safe fallback.
+		return D3DPRESENT_INTERVAL_DEFAULT;
 	}
+
+	// VSync disabled: present immediately when the driver supports it.
+	if (caps.PresentationIntervals & D3DPRESENT_INTERVAL_IMMEDIATE)
+		return D3DPRESENT_INTERVAL_IMMEDIATE;
+
+	// Immediate presentation is unavailable; fall back to synchronized presentation.
 	return D3DPRESENT_INTERVAL_DEFAULT;
 }
+
 
 u32 CHW::selectGPU ()
 {
