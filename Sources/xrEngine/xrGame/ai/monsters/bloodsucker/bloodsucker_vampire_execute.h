@@ -18,7 +18,7 @@ class	CStateBloodsuckerVampireExecute : public CState<_Object> {
 	bool				m_effector_activated;
 
 public:
-						CStateBloodsuckerVampireExecute	(_Object *obj) : inherited(obj) {}
+						CStateBloodsuckerVampireExecute	(_Object *obj) : inherited(obj), m_effector_activated(false) {}
 
 	virtual void		initialize						();
 	virtual	void		execute							();

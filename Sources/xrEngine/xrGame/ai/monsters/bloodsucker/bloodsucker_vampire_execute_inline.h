@@ -13,7 +13,6 @@
 #define VAMPIRE_TIME_HOLD		4000
 #define VAMPIRE_HIT_IMPULSE		400.f
 #define VAMPIRE_MIN_DIST		0.5f
-#define VAMPIRE_MAX_DIST		1.5f
 
 TEMPLATE_SPECIALIZATION
 void CStateBloodsuckerVampireExecuteAbstract::initialize()
@@ -59,7 +58,8 @@ void CStateBloodsuckerVampireExecuteAbstract::execute()
 
 		case eActionWaitTripleEnd:
 			if (!object->com_man().ta_is_active()) {
-				m_action = eActionCompleted; 
+				m_action = eActionCompleted;
+				if (Actor()) object->SetVampireCombatTarget(Actor()->ID());
 			}
 
 		case eActionCompleted:
@@ -79,6 +79,7 @@ void CStateBloodsuckerVampireExecuteAbstract::finalize()
 
 	if (object->CControlledActor::is_controlling())
 		object->CControlledActor::release		();
+
 }
 
 TEMPLATE_SPECIALIZATION
@@ -88,21 +89,23 @@ void CStateBloodsuckerVampireExecuteAbstract::critical_finalize()
 
 	if (object->CControlledActor::is_controlling())
 		object->CControlledActor::release		();
-	
+
+
 	object->start_invisible_predator	();
 }
 
 TEMPLATE_SPECIALIZATION
 bool CStateBloodsuckerVampireExecuteAbstract::check_start_conditions()
 {
-	const CEntityAlive	*enemy = object->EnemyMan.get_enemy();
-	
-	// проверить дистанцию
-	float dist		= object->MeleeChecker.distance_to_enemy	(enemy);
-	if ((dist > VAMPIRE_MAX_DIST) || (dist < VAMPIRE_MIN_DIST))	return false;
+	const CEntityAlive* enemy = object->EnemyMan.get_enemy();
+	if (!enemy) return false;
 
-	// проверить направление на врага
-	if (!object->control().direction().is_face_target(enemy, PI_DIV_6)) return false;
+	const float dist = object->Position().distance_to(enemy->Position());
+	if ((dist > object->m_vampire_attack_distance) || (dist < VAMPIRE_MIN_DIST))
+		return false;
+
+	if (!object->control().direction().is_face_target(enemy, PI_DIV_6))
+		return false;
 
 	return true;
 }
@@ -130,6 +133,7 @@ void CStateBloodsuckerVampireExecuteAbstract::execute_vampire_continue()
 	if (object->Position().distance_to(Actor()->Position()) > 2.f) {
 		object->com_man().ta_deactivate();
 		m_action = eActionCompleted;
+		if (Actor()) object->SetVampireCombatTarget(Actor()->ID());
 		return;
 	}
 	

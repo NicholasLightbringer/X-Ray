@@ -43,6 +43,8 @@ CAI_Bloodsucker::CAI_Bloodsucker()
 	invisible_vel.set				(0.1f, 0.1f);
 
 	EnemyMemory.init_external		(this, 40000);
+	m_stealth_invulnerability		= false;
+	m_vampire_combat_target_id	= u16(-1);
 }
 
 CAI_Bloodsucker::~CAI_Bloodsucker()
@@ -53,6 +55,7 @@ CAI_Bloodsucker::~CAI_Bloodsucker()
 void CAI_Bloodsucker::Load(LPCSTR section) 
 {
 	inherited::Load(section);
+	m_stealth_invulnerability	= READ_IF_EXISTS(!!pSettings, r_bool, section, "stealth_invulnerability", false);
 
 	anim().AddReplacedAnim(&m_bDamaged,			eAnimRun,		eAnimRunDamaged);
 	anim().AddReplacedAnim(&m_bDamaged,			eAnimWalkFwd,	eAnimWalkDamaged);
@@ -142,12 +145,16 @@ void CAI_Bloodsucker::Load(LPCSTR section)
 	movement().detail().add_velocity(MonsterMovement::eVelocityParameterInvisible,CDetailPathManager::STravelParams(invisible_vel.linear, invisible_vel.angular));
 
 	LoadVampirePPEffector			(pSettings->r_string(section,"vampire_effector"));
-	m_vampire_min_delay				= pSettings->r_u32(section,"Vampire_Delay");
+	m_vampire_min_delay				= READ_IF_EXISTS(pSettings, r_u32, section, "Vampire_Delay", 8000);
+	m_vampire_chance				= READ_IF_EXISTS(pSettings, r_float, section, "Vampire_Chance", 0.25f);
+	clamp(m_vampire_chance, 0.f, 1.f);
+	m_vampire_trigger_distance	= READ_IF_EXISTS(pSettings, r_float, section, "Vampire_Trigger_Distance", 3.0f);
+	m_vampire_attack_distance	= READ_IF_EXISTS(pSettings, r_float, section, "Vampire_Distance", 1.5f);
 
-	m_visual_predator				= pSettings->r_string(section,"Predator_Visual");
+	m_visual_predator				= READ_IF_EXISTS(pSettings, r_string, section, "Predator_Visual", pSettings->r_string(section, "visual"));
 
-	m_vampire_want_speed			= pSettings->r_float(section,"Vampire_Want_Speed");
-	m_vampire_wound					= pSettings->r_float(section,"Vampire_Wound");
+	m_vampire_want_speed			= READ_IF_EXISTS(pSettings, r_float, section, "Vampire_Want_Speed", 0.1f);
+	m_vampire_wound					= READ_IF_EXISTS(pSettings, r_float, section, "Vampire_Wound", 0.2f);
 
 
 	invisible_particle_name			= pSettings->r_string(section,"Particle_Invisible");
@@ -158,6 +165,7 @@ void CAI_Bloodsucker::reinit()
 {
 	inherited::reinit			();
 	CControlledActor::reinit	();
+	m_vampire_combat_target_id = u16(-1);
 
 	if(CCustomMonster::use_simplified_visual())	return;
 
@@ -183,13 +191,22 @@ void CAI_Bloodsucker::reload(LPCSTR section)
 {
 	inherited::reload(section);
 
-	sound().add(pSettings->r_string(section,"Sound_Vampire_Grasp"),				DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 4,	MonsterSound::eBaseChannel,	eVampireGrasp,					"bip01_head");
-	sound().add(pSettings->r_string(section,"Sound_Vampire_Sucking"),			DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 3,	MonsterSound::eBaseChannel,	eVampireSucking,				"bip01_head");
-	sound().add(pSettings->r_string(section,"Sound_Vampire_Hit"),				DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 2,	MonsterSound::eBaseChannel,	eVampireHit,					"bip01_head");
-	sound().add(pSettings->r_string(section,"Sound_Vampire_StartHunt"),			DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 5,	MonsterSound::eBaseChannel,	eVampireStartHunt,				"bip01_head");
-	sound().add(pSettings->r_string(section,"Sound_Invisibility_Change_State"),	DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eNormalPriority,	MonsterSound::eChannelIndependent << 1,	eChangeVisibility,	"bip01_head");
-	sound().add(pSettings->r_string(section,"Sound_Growl"),						DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 6,	MonsterSound::eBaseChannel,	eGrowl,							"bip01_head");
-	sound().add(pSettings->r_string(section,"Sound_Alien"),						DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eCriticalPriority,	u32(MonsterSound::eCaptureAllChannels),	eAlien,				"bip01_head");
+	// Vampire-specific sounds are optional in older bloodsucker configs.
+	LPCSTR vampire_grasp = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Vampire_Grasp", pSettings->r_string(section, "sound_attack"));
+	LPCSTR vampire_sucking = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Vampire_Sucking", pSettings->r_string(section, "sound_idle"));
+	LPCSTR vampire_hit = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Vampire_Hit", pSettings->r_string(section, "sound_attack_hit"));
+	LPCSTR vampire_start_hunt = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Vampire_StartHunt", pSettings->r_string(section, "sound_attack"));
+	LPCSTR visibility_sound = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Invisibility_Change_State", pSettings->r_string(section, "sound_attack"));
+	LPCSTR growl_sound = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Growl", pSettings->r_string(section, "sound_growling"));
+	LPCSTR alien_sound = READ_IF_EXISTS(pSettings, r_string, section, "Sound_Alien", pSettings->r_string(section, "sound_bkgnd"));
+
+	sound().add(vampire_grasp,					DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 4,	MonsterSound::eBaseChannel,	eVampireGrasp,					"bip01_head");
+	sound().add(vampire_sucking,				DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 3,	MonsterSound::eBaseChannel,	eVampireSucking,				"bip01_head");
+	sound().add(vampire_hit,					DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 2,	MonsterSound::eBaseChannel,	eVampireHit,					"bip01_head");
+	sound().add(vampire_start_hunt,				DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 5,	MonsterSound::eBaseChannel,	eVampireStartHunt,				"bip01_head");
+	sound().add(visibility_sound,				DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eNormalPriority,	MonsterSound::eChannelIndependent << 1,	eChangeVisibility,	"bip01_head");
+	sound().add(growl_sound,					DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eHighPriority + 6,	MonsterSound::eBaseChannel,	eGrowl,							"bip01_head");
+	sound().add(alien_sound,					DEFAULT_SAMPLE_COUNT,	SOUND_TYPE_MONSTER_ATTACKING, MonsterSound::eCriticalPriority,	u32(MonsterSound::eCaptureAllChannels),	eAlien,				"bip01_head");
 }
 
 
@@ -316,6 +333,7 @@ void CAI_Bloodsucker::UpdateCL()
 	// update vampire need
 	m_vampire_want_value += m_vampire_want_speed * client_update_fdelta();
 	clamp(m_vampire_want_value,0.f,1.f);
+
 }
 
 
@@ -412,6 +430,14 @@ void CAI_Bloodsucker::move_actor_cam()
 	}
 }
 
+void CAI_Bloodsucker::Hit(SHit* pHDS)
+{
+	if (stealth_invulnerable())
+		return;
+
+	inherited::Hit(pHDS);
+}
+
 void CAI_Bloodsucker::HitEntity(const CEntity *pEntity, float fDamage, float impulse, Fvector &dir)
 {
 	inherited::HitEntity(pEntity,fDamage,impulse,dir);
@@ -429,8 +455,8 @@ void CAI_Bloodsucker::HitEntity(const CEntity *pEntity, float fDamage, float imp
 
 void CAI_Bloodsucker::start_invisible_predator()
 {
-	state_invisible				= true;
 	predator_start				();
+	state_invisible				= true;
 }
 void CAI_Bloodsucker::stop_invisible_predator()
 {

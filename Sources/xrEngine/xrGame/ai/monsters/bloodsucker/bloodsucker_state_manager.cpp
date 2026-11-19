@@ -34,49 +34,48 @@ void CStateManagerBloodsucker::execute()
 {
 	u32 state_id = u32(-1);
 
-	const CEntityAlive* enemy	= object->EnemyMan.get_enemy();
+	const CEntityAlive* enemy = object->EnemyMan.get_enemy();
 
 	if (enemy) {
-		if (check_state(eStateCustom_Vampire)) {
+		const bool can_start_vampire = check_state(eStateCustom_Vampire);
+		if (can_start_vampire) {
 			state_id = eStateCustom_Vampire;
+		} else if (object->IsVampireCombatTarget(enemy)) {
+			// Keep fighting the same target after a completed grab instead of
+			// selecting the panic state. Vampire checks remain first, so the
+			// ability can be used again after its charge and cooldown recover.
+			state_id = eStateAttack;
 		} else {
-
+			object->ClearVampireCombatTarget();
 			switch (object->EnemyMan.get_danger_type()) {
 			case eStrong:	state_id = eStatePanic; break;
-			case eWeak:		state_id = eStateAttack; break;
+			case eWeak:	state_id = eStateAttack; break;
 			}
 		}
 
-	} else if (object->HitMemory.is_hit()) {
-		state_id = eStateHitted;
-	} else if (object->hear_dangerous_sound || object->hear_interesting_sound) {
-		state_id = eStateHearInterestingSound;
 	} else {
-		if (can_eat())	state_id = eStateEat;
-		else			state_id = eStateRest;
+		object->ClearVampireCombatTarget();
+		if (object->HitMemory.is_hit())
+			state_id = eStateHitted;
+		else if (object->hear_dangerous_sound || object->hear_interesting_sound)
+			state_id = eStateHearInterestingSound;
+		else {
+			if (can_eat())	state_id = eStateEat;
+			else			state_id = eStateRest;
+		}
 	}
 
 	///////////////////////////////////////////////////////////////////////////////
 	// Additional
 	///////////////////////////////////////////////////////////////////////////////
 
-	// check if start interesting sound state
-	if ((prev_substate != eStateHearInterestingSound) && (state_id == eStateHearInterestingSound)){
+	if ((prev_substate != eStateHearInterestingSound) && (state_id == eStateHearInterestingSound)) {
 		object->predator_start();
-	} else
-	// check if stop interesting sound state
-	if ((prev_substate == eStateHearInterestingSound) && (state_id != eStateHearInterestingSound)) {
+	} else if ((prev_substate == eStateHearInterestingSound) && (state_id != eStateHearInterestingSound)) {
 		object->predator_stop();
 	}
-	///////////////////////////////////////////////////////////////////////////////
 
-	
-	select_state(state_id); 
-
-	// выполнить текущее состояние
+	select_state(state_id);
 	get_state_current()->execute();
-
 	prev_substate = current_substate;
-
 }
-

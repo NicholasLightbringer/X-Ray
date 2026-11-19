@@ -15,6 +15,7 @@
 #include "../skeletoncustom.h"
 #include "Actor.h"
 #include "AI/Stalker/ai_stalker.h"
+#include "ai/monsters/bloodsucker/bloodsucker.h"
 #include "character_info.h"
 #include "game_cl_base_weapon_usage_statistic.h"
 #include "../xr_collide_defs.h"
@@ -36,6 +37,10 @@ BOOL CBulletManager::test_callback(const collide::ray_defs& rd, CObject* object,
 {
 	bullet_test_callback_data* pData	= (bullet_test_callback_data*)params;
 	SBullet* bullet = pData->pBullet;
+
+	CAI_Bloodsucker* bloodsucker = smart_cast<CAI_Bloodsucker*>(object);
+	if (bloodsucker && bloodsucker->stealth_invulnerable())
+		return FALSE;
 
 	if( (object->ID() == bullet->parent_id)		&&  
 		(bullet->fly_dist<PARENT_IGNORE_DIST)	&&

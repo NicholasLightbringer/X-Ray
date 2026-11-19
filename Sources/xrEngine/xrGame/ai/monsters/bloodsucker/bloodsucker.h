@@ -32,6 +32,7 @@ public:
 	
 	virtual bool			use_center_to_aim		() const {return true;}
 	virtual bool			check_start_conditions	(ControlCom::EControlType);
+	virtual void			Hit					(SHit* pHDS);
 	virtual void			HitEntity				(const CEntity *pEntity, float fDamage, float impulse, Fvector &dir);
 	
 	//--------------------------------------------------------------------
@@ -59,8 +60,10 @@ private:
 private:
 	SMotionVel				invisible_vel;
 	LPCSTR					invisible_particle_name;
+	bool					m_stealth_invulnerability;
 
 public:
+	IC bool				stealth_invulnerable		() const { return m_stealth_invulnerability && state_invisible; }
 			void			start_invisible_predator	();
 			void			stop_invisible_predator		();
 
@@ -70,6 +73,9 @@ public:
 public:
 
 	u32						m_vampire_min_delay;
+	float					m_vampire_chance;
+	float					m_vampire_trigger_distance;
+	float					m_vampire_attack_distance;
 	SAnimationTripleData	anim_triple_vampire;
 
 	SPPInfo					pp_vampire_effector;
@@ -77,9 +83,14 @@ public:
 			
 			void			ActivateVampireEffector	();
 	IC		bool			WantVampire				() {return (fsimilar(m_vampire_want_value,1.f) == TRUE);}
+	IC		float		VampireWantValue		() const { return m_vampire_want_value; }
 	IC		void			SatisfyVampire			() {m_vampire_want_value = 0.f;}
+	IC		void		SetVampireCombatTarget	(u16 enemy_id) { m_vampire_combat_target_id = enemy_id; }
+	IC		bool		IsVampireCombatTarget	(const CEntityAlive* enemy) const { return enemy && enemy->ID() == m_vampire_combat_target_id; }
+	IC		void		ClearVampireCombatTarget	() { m_vampire_combat_target_id = u16(-1); }
 
 private:
+	u16						m_vampire_combat_target_id;
 	float					m_vampire_want_value;
 	float					m_vampire_want_speed;		// load from ltx
 	float					m_vampire_wound;

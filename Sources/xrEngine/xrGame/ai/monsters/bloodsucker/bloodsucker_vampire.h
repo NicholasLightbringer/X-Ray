@@ -7,6 +7,7 @@ class	CStateBloodsuckerVampire : public CState<_Object> {
 	typedef CState<_Object>*	state_ptr;
 
 	u32					m_time_last_vampire;
+	bool					m_weapon_hidden;
 
 	const CEntityAlive *enemy;
 
