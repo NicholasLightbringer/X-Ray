@@ -87,6 +87,18 @@ void CController::Load(LPCSTR section)
 	m_max_controlled_number			= pSettings->r_u8(section,"Max_Controlled_Count");
 	m_controlled_objects.reserve	(m_max_controlled_number);
 
+	m_psy_phantom_min_count		= pSettings->r_u8(section,"PsyAttack_Phantoms_MinCount");
+	m_psy_phantom_max_count		= pSettings->r_u8(section,"PsyAttack_Phantoms_MaxCount");
+	if (m_psy_phantom_max_count < m_psy_phantom_min_count)
+		std::swap(m_psy_phantom_min_count, m_psy_phantom_max_count);
+
+	m_psy_phantom_min_distance	= pSettings->r_float(section,"PsyAttack_Phantoms_MinDistance");
+	m_psy_phantom_max_distance	= pSettings->r_float(section,"PsyAttack_Phantoms_MaxDistance");
+	if (m_psy_phantom_min_distance < 0.f) m_psy_phantom_min_distance = 0.f;
+	if (m_psy_phantom_max_distance < 0.f) m_psy_phantom_max_distance = 0.f;
+	if (m_psy_phantom_max_distance < m_psy_phantom_min_distance)
+		std::swap(m_psy_phantom_min_distance, m_psy_phantom_max_distance);
+
 	anim().accel_load			(section);
 	//anim().accel_chain_add		(eAnimWalkFwd,		eAnimRun);
 	//anim().accel_chain_add		(eAnimWalkDamaged,	eAnimRunDamaged);
@@ -533,13 +545,39 @@ void CController::draw_fire_particles()
 
 void CController::psy_fire()
 {
-	if (!EnemyMan.get_enemy())	return;
-	
 	draw_fire_particles			();
-/*	
-	active_control_fx			= true;
-	time_control_hit_started	= Device.dwTimeGlobal;
-*/
+}
+
+void CController::spawn_psy_attack_phantoms()
+{
+	CActor *actor = Actor();
+	if (!actor || !actor->g_Alive()) {
+		return;
+	}
+
+	const u32 phantom_count = (u32)Random.randI(
+		(int)m_psy_phantom_min_count,
+		(int)m_psy_phantom_max_count
+	);
+
+	const Fvector origin = actor->Position();
+
+	for (u32 i = 0; i < phantom_count; ++i) {
+		Fvector direction;
+		direction.setHP(Random.randF(0.f, PI_MUL_2), 0.f);
+		direction.normalize_safe();
+
+		const float distance = Random.randF(
+			m_psy_phantom_min_distance,
+			m_psy_phantom_max_distance
+		);
+
+		Fvector phantom_position;
+		phantom_position.mad(origin, direction, distance);
+
+		// Same server-side spawn path as level.spawn_phantom() in level_script.cpp.
+		Level().spawn_item("m_phantom", phantom_position, u32(-1), u16(-1), false);
+	}
 }
 
 bool CController::can_psy_fire()
@@ -583,6 +621,10 @@ void CController::tube_fire()
 	if (!m_tube_at_once && (Random.randI(100) > TUBE_PROBABILITY)) return;
 
 	control().activate	(ControlCom::eComCustom1);
+
+	// The special ranged Psy Attack starts here (tube_at_once / CControllerPsyHit).
+	// Spawn phantoms at the attack trigger, not from an animation-end callback.
+	spawn_psy_attack_phantoms();
 }
 
 

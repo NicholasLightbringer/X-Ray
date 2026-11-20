@@ -33,7 +33,13 @@ CStateManagerController::CStateManagerController(CController *obj) : inherited(o
 	add_state(eStateHearDangerousSound,		xr_new<CStateMonsterHearDangerousSound<CController> >	(obj));
 	add_state(eStateHitted,					xr_new<CStateMonsterHitted<CController> >				(obj));
 	
-	add_state(eStateAttack,					xr_new<CStateMonsterAttackRun<CController> >			(obj));
+	add_state(
+		eStateAttack,
+		xr_new<CStateMonsterAttack<CController> > (obj,
+			xr_new<CStateMonsterAttackRun<CController> > (obj),
+			xr_new<CStateMonsterAttackMelee<CController> > (obj)
+		)
+	);
 
 	//add_state(
 	//	eStateAttack, 
@@ -68,9 +74,19 @@ void CStateManagerController::execute()
 	const CEntityAlive* enemy	= object->EnemyMan.get_enemy();
 
 	if (enemy) {
-		switch (object->EnemyMan.get_danger_type()) {
-			case eStrong:	state_id = eStatePanic; break;
-			case eWeak:		state_id = eStateAttack; break;
+		// At close range the controller must use its restored melee attack,
+		// even when the enemy is normally classified as a strong threat.
+		const bool close_combat =
+			object->EnemyMan.see_enemy_now() &&
+			(object->MeleeChecker.distance_to_enemy(enemy) <= object->MeleeChecker.get_max_distance());
+
+		if (close_combat) {
+			state_id = eStateAttack;
+		} else {
+			switch (object->EnemyMan.get_danger_type()) {
+				case eStrong: state_id = eStatePanic; break;
+				case eWeak:   state_id = eStateAttack; break;
+			}
 		}
 	} else if (object->HitMemory.is_hit()) {
 		state_id = eStateHitted;

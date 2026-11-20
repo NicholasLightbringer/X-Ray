@@ -51,7 +51,12 @@ void CControllerAnimation::on_stop_control	(ControlCom::EControlType type)
 void CControllerAnimation::on_event(ControlCom::EEventType type, ControlCom::IEventData *data)
 {
 	switch (type) {
-	case ControlCom::eventAnimationEnd:			select_animation();			break;
+	case ControlCom::eventAnimationEnd:
+		if (m_state_attack)
+			inherited::on_event(type, data);
+		else
+			select_animation();
+		break;
 	case ControlCom::eventTorsoAnimationEnd:	
 		m_wait_torso_anim_end	= false;
 		select_torso_animation	();

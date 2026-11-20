@@ -32,6 +32,12 @@ class CController : public CBaseMonster {
 	u32					m_psy_fire_start_time;
 	u32					m_psy_fire_delay;
 
+	// Phantom settings for the controller's ranged Psy Attack.
+	u8					m_psy_phantom_min_count;
+	u8					m_psy_phantom_max_count;
+	float				m_psy_phantom_min_distance;
+	float				m_psy_phantom_max_distance;
+
 	bool				m_tube_at_once;
 
 	
@@ -128,6 +134,7 @@ public:
 			void	control_hit					();
 
 			void	psy_fire					();
+			void	spawn_psy_attack_phantoms	();
 			bool	can_psy_fire				();
 
 			void	tube_fire					();
