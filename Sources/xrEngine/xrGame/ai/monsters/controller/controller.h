@@ -38,6 +38,19 @@ class CController : public CBaseMonster {
 	float				m_psy_phantom_min_distance;
 	float				m_psy_phantom_max_distance;
 
+	// Configurable response when the player aims directly at this controller.
+	ref_sound			m_psy_aim_sound;
+	shared_str			m_psy_aim_ppe_file;
+	u32					m_psy_aim_cooldown_ms;
+	float					m_psy_aim_max_distance;
+	float					m_psy_aim_return_percent;
+	u32					m_psy_aim_last_time;
+	float				m_psy_aim_camera_time;
+	float				m_psy_aim_camera_angle;
+	bool				m_psy_aim_has_triggered;
+	bool				m_psy_aim_sound_enabled;
+	bool				m_psy_aim_ppe_enabled;
+
 	bool				m_tube_at_once;
 
 	
@@ -135,6 +148,7 @@ public:
 
 			void	psy_fire					();
 			void	spawn_psy_attack_phantoms	();
+			void	update_psy_aim_effect		();
 			bool	can_psy_fire				();
 
 			void	tube_fire					();

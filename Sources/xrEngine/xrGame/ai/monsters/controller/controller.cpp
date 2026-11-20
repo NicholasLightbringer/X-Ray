@@ -3,6 +3,8 @@
 #include "controller_state_manager.h"
 #include "../controlled_entity.h"
 #include "../../../actor.h"
+#include "../../../../IGame_Persistent.h"
+#include "../../../../CameraBase.h"
 #include "../../../ActorEffector.h"
 #include "../ai_monster_effector.h"
 #include "../../../hudmanager.h"
@@ -41,6 +43,7 @@
 #include "controller_psy_hit.h"
 #include "../monster_cover_manager.h"
 #include "controller_psy_aura.h"
+#include "../../../PostprocessAnimator.h"
 
 #ifdef _DEBUG
 #	include <dinput.h>
@@ -48,6 +51,80 @@
 
 const u32	_pmt_psy_attack_delay		= 2000;
 const float	_pmt_psy_attack_min_angle	= deg(5);
+
+// Camera deflection caused by the controller's gaze.
+// The camera is first moved away from its original direction, then smoothly
+// moved part of the way back. The remaining offset is kept in the camera itself.
+class CControllerAimCameraEffector : public CEffectorCam
+{
+	typedef CEffectorCam inherited;
+
+	CActor* m_actor;
+	float m_duration;
+	float m_elapsed;
+	float m_angle;
+	float m_side;
+	float m_return_fraction;
+	float m_applied_angle;
+
+	static float smooth_step(float value)
+	{
+		clamp(value, 0.f, 1.f);
+		return value * value * (3.f - 2.f * value);
+	}
+
+public:
+	CControllerAimCameraEffector(ECamEffectorType type, CActor* actor, float duration, float angle, float side, float return_fraction)
+		: inherited(type, duration), m_actor(actor), m_duration(duration), m_elapsed(0.f),
+		  m_angle(angle), m_side(side), m_return_fraction(return_fraction), m_applied_angle(0.f)
+	{}
+
+	virtual BOOL Process(Fvector &, Fvector &, Fvector &, float &, float &, float &)
+	{
+		if (!m_actor || !m_actor->cam_Active() || m_duration <= 0.f)
+			return FALSE;
+
+		m_elapsed += Device.fTimeDelta;
+		clamp(m_elapsed, 0.f, m_duration);
+
+		const float progress = m_elapsed / m_duration;
+		float amount = 1.f;
+
+		if (progress < 0.5f)
+		{
+			// Phase 1: smoothly move the camera away from its initial direction.
+			amount = smooth_step(progress * 2.f);
+		}
+		else
+		{
+			// Phase 2: smoothly move back toward the initial direction by
+			// ReturnPercent. For 25%, 75% of the initial deflection remains.
+			const float return_progress = smooth_step((progress - 0.5f) * 2.f);
+			amount = 1.f - m_return_fraction * return_progress;
+		}
+
+		const float target_angle = m_side * m_angle * amount;
+		const float delta = target_angle - m_applied_angle;
+
+		if (_abs(delta) > EPS)
+		{
+			CCameraBase* camera = m_actor->cam_Active();
+			int command = (delta > 0.f) ? kRIGHT : kLEFT;
+
+			// Look-at cameras rotate in the opposite command direction.
+			if (camera->style == csLookAt)
+				command = (command == kRIGHT) ? kLEFT : kRIGHT;
+
+			camera->Move(command, _abs(delta));
+		}
+
+		m_applied_angle = target_angle;
+		fLifeTime -= Device.fTimeDelta;
+
+		// The final camera angle has already been applied incrementally.
+		return (progress < 1.f && fLifeTime > 0.f);
+	}
+};
 
 
 CController::CController()
@@ -60,6 +137,16 @@ CController::CController()
 	control().add		(m_psy_hit,  ControlCom::eComCustom1);
 
 	m_aura				= xr_new<CControllerAura>(this);
+
+	m_psy_aim_cooldown_ms	= 3000;
+	m_psy_aim_max_distance	= 100.f;
+	m_psy_aim_return_percent	= 25.f;
+	m_psy_aim_camera_time	= 0.65f;
+	m_psy_aim_camera_angle	= 28.f;
+	m_psy_aim_last_time	= 0;
+	m_psy_aim_has_triggered	= false;
+	m_psy_aim_sound_enabled	= false;
+	m_psy_aim_ppe_enabled	= false;
 
 
 #ifdef _DEBUG	
@@ -98,6 +185,37 @@ void CController::Load(LPCSTR section)
 	if (m_psy_phantom_max_distance < 0.f) m_psy_phantom_max_distance = 0.f;
 	if (m_psy_phantom_max_distance < m_psy_phantom_min_distance)
 		std::swap(m_psy_phantom_min_distance, m_psy_phantom_max_distance);
+
+	m_psy_aim_cooldown_ms = (u32)(_max(0.f, pSettings->r_float(section, "PsyLook_Cooldown")) * 1000.f);
+	if (m_psy_aim_cooldown_ms < 100)
+		m_psy_aim_cooldown_ms = 100;
+
+	m_psy_aim_max_distance = pSettings->line_exist(section, "PsyLook_MaxDistance")
+		? _max(0.f, pSettings->r_float(section, "PsyLook_MaxDistance")) : 100.f;
+	m_psy_aim_return_percent = pSettings->line_exist(section, "PsyLook_ReturnPercent")
+		? pSettings->r_float(section, "PsyLook_ReturnPercent") : 25.f;
+	clamp(m_psy_aim_return_percent, 0.f, 100.f);
+
+	m_psy_aim_camera_time = _max(0.05f, pSettings->r_float(section, "PsyLook_CameraDuration"));
+	m_psy_aim_camera_angle = _max(0.f, pSettings->r_float(section, "PsyLook_CameraAngle"));
+
+	m_psy_aim_sound_enabled = false;
+	if (pSettings->line_exist(section, "PsyLook_Sound")) {
+		LPCSTR sound_name = pSettings->r_string(section, "PsyLook_Sound");
+		if (sound_name && xr_strlen(sound_name) && xr_strcmp(sound_name, "off")) {
+			m_psy_aim_sound.create(sound_name, st_Effect, sg_SourceType);
+			m_psy_aim_sound_enabled = true;
+		}
+	}
+
+	m_psy_aim_ppe_enabled = false;
+	if (pSettings->line_exist(section, "PsyLook_PPE")) {
+		LPCSTR ppe_name = pSettings->r_string(section, "PsyLook_PPE");
+		if (ppe_name && xr_strlen(ppe_name) && xr_strcmp(ppe_name, "off")) {
+			m_psy_aim_ppe_file = ppe_name;
+			m_psy_aim_ppe_enabled = true;
+		}
+	}
 
 	anim().accel_load			(section);
 	//anim().accel_chain_add		(eAnimWalkFwd,		eAnimRun);
@@ -383,6 +501,8 @@ void CController::reinit()
 	active_control_fx		 = false;
 
 	m_time_last_tube		= 0;
+	m_psy_aim_last_time	= 0;
+	m_psy_aim_has_triggered	= false;
 }
 
 void CController::control_hit()
@@ -408,6 +528,7 @@ void CController::control_hit()
 void CController::UpdateCL()
 {
 	inherited::UpdateCL();
+	update_psy_aim_effect();
 	
 	if(m_sndShockEffector)
 	{
@@ -450,8 +571,59 @@ void CController::UpdateCL()
 	}
 
 	m_aura->update_frame();
-
+	
 }
+
+void CController::update_psy_aim_effect()
+{
+	if (g_dedicated_server)
+		return;
+
+	CActor *actor = Actor();
+	if (!actor || !actor->g_Alive() || Level().CurrentControlEntity() != actor)
+		return;
+
+	collide::rq_result &ray = HUD().GetCurrentRayQuery();
+	if (smart_cast<CController *>(ray.O) != this)
+		return;
+
+	// Do not let the controller disturb the player's view from very far away.
+	if (m_psy_aim_max_distance > 0.f && ray.range > m_psy_aim_max_distance)
+		return;
+
+	const u32 now = Device.dwTimeGlobal;
+	if (m_psy_aim_has_triggered && (now - m_psy_aim_last_time) < m_psy_aim_cooldown_ms)
+		return;
+
+	m_psy_aim_last_time = now;
+	m_psy_aim_has_triggered = true;
+
+	// Match the unique per-object effector ID pattern used by the bloodsucker
+	// alien camera and PP effectors in this codebase.
+	const u32 effect_id = u32(u64(this) & u32(-1));
+	const float side = Random.randI(2) ? 1.f : -1.f;
+
+	actor->Cameras().AddCamEffector(
+		xr_new<CControllerAimCameraEffector>(
+			(ECamEffectorType)effect_id,
+			actor,
+			m_psy_aim_camera_time,
+			deg(m_psy_aim_camera_angle),
+			side,
+			m_psy_aim_return_percent / 100.f
+		)
+	);
+
+	if (m_psy_aim_sound_enabled)
+		m_psy_aim_sound.play_at_pos(this, get_head_position(this));
+
+	if (m_psy_aim_ppe_enabled) {
+		CPostprocessAnimator *ppe = xr_new<CPostprocessAnimator>((int)effect_id, false);
+		ppe->Load(*m_psy_aim_ppe_file);
+		actor->Cameras().AddPPEffector(ppe);
+	}
+}
+
 
 void CController::shedule_Update(u32 dt)
 {
